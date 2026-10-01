@@ -1,0 +1,22 @@
+version: "3.7"
+
+services:
+  server:
+    image: felddy/foundryvtt:14.360@sha256:383417dbf3c442a03dcca9a4813b47c7408addaf6d582b7d3b1ee4b65c24a245
+    restart: on-failure
+    stop_grace_period: 1m
+    # Host networking keeps Foundry on :30000 so Tailscale serve (:8443 -> 30000),
+    # foundry-mcp and codex-editor reach it at the same address as before.
+    network_mode: host
+    environment:
+      FOUNDRY_UID: "1000"
+      FOUNDRY_GID: "1000"
+      # Installs Foundry from the zip already cached on the data drive - no credentials needed.
+      CONTAINER_CACHE: /data/container_cache
+      TIMEZONE: America/New_York
+      FOUNDRY_WORLD: cartosia
+      FOUNDRY_PROXY_SSL: "true"
+      FOUNDRY_PROXY_PORT: "8443"
+    # Deliberately no /data volume: /data is supplied by an umbrelOS custom mount
+    # (/External/HPdrive/foundry-vtt -> /data) so the world lives outside app data
+    # and survives uninstall/reinstall.

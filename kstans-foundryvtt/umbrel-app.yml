@@ -1,0 +1,28 @@
+manifestVersion: 1
+id: kstans-foundryvtt
+category: media
+name: Foundry VTT
+version: "14.360"
+tagline: Self-hosted virtual tabletop
+description: >
+  Foundry Virtual Tabletop, packaged with the felddy/foundryvtt image.
+
+
+  Setup: this app keeps no data of its own. Before starting it, add a custom
+  mount in the app's settings that maps a folder (for example
+  /External/HPdrive/foundry-vtt) to /data inside the "server" service. That
+  folder holds Data/, Config/ (license) and container_cache/ (the Foundry
+  release zip).
+developer: Foundry Gaming LLC
+website: https://foundryvtt.com
+dependencies: []
+repo: https://github.com/felddy/foundryvtt-docker
+support: https://github.com/felddy/foundryvtt-docker/issues
+port: 30000
+gallery: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+releaseNotes: ""
+submitter: kstans
+submission: https://github.com/kstans/umbrel-apps
