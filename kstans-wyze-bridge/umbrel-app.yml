@@ -1,0 +1,30 @@
+manifestVersion: 1
+id: kstans-wyze-bridge
+category: automation
+name: Wyze Bridge
+version: "4.5.0"
+tagline: Local RTSP/WebRTC/HLS streams for Wyze cameras
+description: >
+  docker-wyze-bridge (IDisposable fork), packaged with the
+  idisposablegithub365/wyze-bridge image. Exposes each Wyze camera at
+  rtsp://<umbrel-ip>:8554/<camera_name> for Home Assistant and other players.
+
+
+  Setup: before starting it, add these custom environment variables on the
+  "server" service in the app's settings: WYZE_EMAIL, WYZE_PASSWORD,
+  WYZE_API_ID and WYZE_API_KEY (API ID and key come from
+  https://developer-api-console.wyze.com/#/apikey/view). Add WYZE_TOTP_KEY if
+  the Wyze account uses 2FA.
+developer: IDisposable
+website: https://github.com/IDisposable/docker-wyze-bridge
+dependencies: []
+repo: https://github.com/IDisposable/docker-wyze-bridge
+support: https://github.com/IDisposable/docker-wyze-bridge/issues
+port: 5080
+gallery: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+releaseNotes: ""
+submitter: kstans
+submission: https://github.com/kstans/umbrel-apps
