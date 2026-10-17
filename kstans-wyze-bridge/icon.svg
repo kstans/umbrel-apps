@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#123f4a"/>
+      <stop offset="1" stop-color="#06161c"/>
+    </linearGradient>
+    <radialGradient id="lens" cx="40%" cy="38%" r="70%">
+      <stop offset="0" stop-color="#3a7bd5"/>
+      <stop offset="0.45" stop-color="#14305a"/>
+      <stop offset="1" stop-color="#050b16"/>
+    </radialGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4fbfc"/>
+      <stop offset="1" stop-color="#c3d6da"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="256" height="256" fill="url(#bg)"/>
+
+  <!-- signal waves -->
+  <g fill="none" stroke="#3fe0d0" stroke-linecap="round">
+    <path d="M62 74 A56 56 0 0 0 62 142" stroke-width="6" opacity="0.9"/>
+    <path d="M40 58 A80 80 0 0 0 40 158" stroke-width="5" opacity="0.55"/>
+    <path d="M194 74 A56 56 0 0 1 194 142" stroke-width="6" opacity="0.9"/>
+    <path d="M216 58 A80 80 0 0 1 216 158" stroke-width="5" opacity="0.55"/>
+  </g>
+
+  <!-- camera -->
+  <rect x="80" y="60" width="96" height="96" rx="26" fill="url(#body)"/>
+  <circle cx="128" cy="108" r="34" fill="#0b1c26"/>
+  <circle cx="128" cy="108" r="27" fill="url(#lens)"/>
+  <circle cx="128" cy="108" r="11" fill="#02060c"/>
+  <ellipse cx="118" cy="97" rx="7" ry="4.5" fill="#ffffff" opacity="0.75" transform="rotate(-30 118 97)"/>
+  <circle cx="160" cy="74" r="4.5" fill="#39ff8a"/>
+
+  <!-- bridge -->
+  <g stroke="#3fe0d0" stroke-linecap="round" fill="none">
+    <line x1="24" y1="210" x2="232" y2="210" stroke-width="7"/>
+    <line x1="64" y1="168" x2="64" y2="222" stroke-width="7"/>
+    <line x1="192" y1="168" x2="192" y2="222" stroke-width="7"/>
+    <path d="M24 186 Q44 198 64 168 Q128 222 192 168 Q212 198 232 186" stroke-width="4"/>
+    <g stroke-width="3" opacity="0.8">
+      <line x1="96" y1="187" x2="96" y2="210"/>
+      <line x1="128" y1="195" x2="128" y2="210"/>
+      <line x1="160" y1="187" x2="160" y2="210"/>
+    </g>
+  </g>
+</svg>

@@ -4,6 +4,7 @@ category: automation
 name: Wyze Bridge
 version: "4.5.0"
 tagline: Local RTSP/WebRTC/HLS streams for Wyze cameras
+icon: https://cdn.jsdelivr.net/gh/kstans/umbrel-apps@main/kstans-wyze-bridge/icon.svg
 description: >
   docker-wyze-bridge (IDisposable fork), packaged with the
   idisposablegithub365/wyze-bridge image. Exposes each Wyze camera at

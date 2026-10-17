@@ -4,6 +4,7 @@ category: media
 name: Foundry VTT
 version: "14.360"
 tagline: Self-hosted virtual tabletop
+icon: https://cdn.jsdelivr.net/gh/kstans/umbrel-apps@main/kstans-foundryvtt/icon.svg
 description: >
   Foundry Virtual Tabletop, packaged with the felddy/foundryvtt image.
 
