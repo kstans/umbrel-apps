@@ -2,7 +2,7 @@ manifestVersion: 1
 id: kstans-wyze-bridge
 category: automation
 name: Wyze Bridge
-version: "4.6.1-beta.1"
+version: "4.6.1-beta.1-1"
 tagline: Local RTSP/WebRTC/HLS streams for Wyze cameras
 icon: https://cdn.jsdelivr.net/gh/kstans/umbrel-apps@main/kstans-wyze-bridge/icon.svg
 description: >
@@ -28,6 +28,6 @@ defaultUsername: ""
 defaultPassword: ""
 releaseNotes: >
   Bridge 4.6.1-beta.1: fixes WebRTC ICE servers and re-logs in when the Wyze
-  token expires. Outdoor V2 (HL_WCO2) cameras are routed over WebRTC.
+  token expires.
 submitter: kstans
 submission: https://github.com/kstans/umbrel-apps

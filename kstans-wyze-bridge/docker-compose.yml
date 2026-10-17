@@ -12,9 +12,6 @@ services:
       # LAN address browsers use for WebRTC playback.
       BRIDGE_IP: 192.168.7.40
       TZ: America/New_York
-      # Outdoor V2 cams have non-DTLS firmware, which go2rtc's TUTK path refuses.
-      # Route them through Wyze's WebRTC backend instead.
-      MODEL_OVERRIDES: HL_WCO2:is_webrtc=true
     # Wyze credentials are deliberately not here: set WYZE_EMAIL, WYZE_PASSWORD,
     # WYZE_API_ID and WYZE_API_KEY as custom environment variables on the "server"
     # service in the app's umbrelOS settings.
