@@ -2,15 +2,15 @@ version: "3.7"
 
 services:
   server:
-    image: node:22-alpine
+    # Built from app/ by .github/workflows/pc-reports-image.yml. The code lives in the image because
+    # umbrelOS does not replace files inside an installed app's folder on update.
+    image: ghcr.io/kstans/pc-reports:1.0.1@sha256:7590fb46f299514f393bb2ff552b48fc96eb2b00e949c2b0c9113b87e815307a
     restart: unless-stopped
     # Host networking: SimpleHelp's Web API only accepts Tailscale addresses, and the Umbrel's
     # Tailscale app also runs on the host network, so Tailscale Serve (:8444 -> 8765) and the
     # SimpleHelp API calls both work at the Umbrel's own addresses.
     network_mode: host
     user: "1000:1000"
-    working_dir: /app
-    command: ["node", "server.mjs"]
     environment:
       PORT: "8765"
       DATA_DIR: /data
@@ -19,5 +19,4 @@ services:
     # SIMPLEHELP_URL, SIMPLEHELP_TOKEN, SIMPLEHELP_TECHNICIAN and SIMPLEHELP_CONNECT_ADDRESS as
     # custom environment variables on the "server" service in the app's umbrelOS settings.
     volumes:
-      - ${APP_DATA_DIR}/app:/app:ro
       - ${APP_DATA_DIR}/data:/data

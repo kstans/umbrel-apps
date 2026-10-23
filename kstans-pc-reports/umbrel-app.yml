@@ -2,7 +2,7 @@ manifestVersion: 1
 id: kstans-pc-reports
 category: networking
 name: PC Reports
-version: "1.0.1"
+version: "1.0.2"
 tagline: SimpleHelp computer inventory with health checks
 icon: https://cdn.jsdelivr.net/gh/kstans/umbrel-apps@main/kstans-pc-reports/icon.svg
 description: >
@@ -29,6 +29,6 @@ gallery: []
 path: ""
 defaultUsername: ""
 defaultPassword: ""
-releaseNotes: "Remote control buttons: open a SimpleHelp Technician Console session to a PC from its row or its page."
+releaseNotes: "Runs from its own Docker image (ghcr.io/kstans/pc-reports), so umbrelOS updates now replace the code. Includes 1.0.1: remote control buttons and faster scans."
 submitter: kstans
 submission: https://github.com/kstans/umbrel-apps
