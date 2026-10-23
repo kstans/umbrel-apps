@@ -63,6 +63,12 @@ body.live .chip .ack { display: inline-block; }
 body.live .rs { display: inline-block; }
 a.rs { text-decoration: none; }
 .rs:hover { border-color: var(--accent); }
+/* Remote control: opens a session in the SimpleHelp Technician Console (simplehelp://?JW_machine=<ID>).
+   Works on any computer with the Technician Console installed, signed in or not to this page. */
+.rc { display: inline-block; font-size: 12px; padding: 1px 8px; margin-left: 8px; border: 1px solid var(--ok); border-radius: 6px;
+  color: var(--ok); text-decoration: none; vertical-align: 1px; white-space: nowrap; }
+.rc:hover { background: var(--ok-bg); }
+@media print { .rc { display: none; } }
 .rs.armed { background: var(--accent); color: #fff; border-color: var(--accent); }
 .rs:disabled { opacity: 0.5; cursor: default; }
 .job { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent); }
@@ -111,7 +117,7 @@ document.getElementById('stats').innerHTML =
   S('Look healthy', rep.filter(m => worst(m) === 0).length);
 
 const row = m => `<tr class="${m.online ? '' : 'off'}">
-  <td><span class="dot ${m.online ? 'on' : ''}" title="${m.online ? 'online' : 'offline'}"></span>${m.report ? `<a class="pc" href="pc/${esc(m.id)}.html">${esc(m.name)}</a>` : esc(m.name)}${rsBtn([m], m.name, 'Rescan')}
+  <td><span class="dot ${m.online ? 'on' : ''}" title="${m.online ? 'online' : 'offline'}"></span>${m.report ? `<a class="pc" href="pc/${esc(m.id)}.html">${esc(m.name)}</a>` : esc(m.name)}${rsBtn([m], m.name, 'Rescan')}${m.online ? `<a class="rc" href="simplehelp://?JW_machine=${encodeURIComponent(m.id)}" title="Open a remote control session in the SimpleHelp Technician Console">Remote</a>` : ''}
     ${m.host && m.host.toLowerCase() !== String(m.name).toLowerCase() ? `<div class="small">${esc(m.host)}</div>` : ''}</td>
   <td>${esc(m.user)}</td>
   <td>${esc(m.os)}${m.model ? `<div class="small">${esc(m.model)}</div>` : ''}</td>

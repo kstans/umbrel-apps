@@ -60,6 +60,12 @@ details summary { cursor: pointer; color: var(--accent); }
 .svc li { break-inside: avoid; padding: 2px 0; font-size: 13px; }
 .svc li span { color: var(--muted); }
 footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
+/* Remote control: opens a session in the SimpleHelp Technician Console (simplehelp://?JW_machine=<ID>).
+   Works on any computer with the Technician Console installed, signed in or not to this page. */
+.rc { display: inline-block; font-size: 12px; padding: 1px 8px; margin-left: 8px; border: 1px solid var(--ok); border-radius: 6px;
+  color: var(--ok); text-decoration: none; vertical-align: 1px; white-space: nowrap; }
+.rc:hover { background: var(--ok-bg); }
+@media print { .rc { display: none; } }
 .back { display: inline-block; margin-bottom: 12px; color: var(--accent); text-decoration: none; }
 /* Rescan only shows when the page comes from the report server. */
 .rs { display: none; font: inherit; font-size: 13px; padding: 4px 12px; border: 1px solid var(--line); border-radius: 6px;
@@ -160,7 +166,7 @@ document.getElementById('app').innerHTML = `
 ${BACK ? `<a class="back" href="${esc(BACK)}">&larr; All computers</a>` : ''}
 <header>
   <div><h1>${esc(shown)}</h1>${TITLE && TITLE.toUpperCase() !== String(C.Name).toUpperCase() ? `<div class="small">Windows name ${esc(C.Name)}</div>` : ''}<div class="sub">${esc(C.Manufacturer)} ${esc(C.Model)} &middot; Serial ${esc(B.SerialNumber)} &middot; ${esc(C.UserName)}</div></div>
-  <div class="sub">Collected ${esc(d.Collected)}${MID ? ` <button class="rs" id="rs" type="button">Rescan this PC</button>` : ''}</div>
+  <div class="sub">Collected ${esc(d.Collected)}${MID ? ` <button class="rs" id="rs" type="button">Rescan this PC</button>` : ''}${MID ? `<a class="rc" href="simplehelp://?JW_machine=${encodeURIComponent(MID)}" title="Open a remote control session in the SimpleHelp Technician Console">Remote control</a>` : ''}</div>
 </header>
 <div id="job" class="job" hidden></div>
 

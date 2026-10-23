@@ -81,18 +81,32 @@ async function loadReports() {
 // ---- Jobs: rescan and refresh (one at a time) -----------------------------------------------
 let job = null;
 
-async function runReport(toolID, ids) {
+// Runs pc-report on ids and hands each machine's output to onDone as soon as it finishes, so pages
+// fill in during a long scan. Stops waiting when every machine is done, when nothing new has
+// finished for STALL_MS (old or dropped PCs can sit "running" forever), or after RUN_TIMEOUT_MS.
+// Output is re-read only when more machines have finished, at most every 20 s: it carries every
+// finished machine's full report each time.
+const STALL_MS = 3 * 60 * 1000;
+async function runReport(toolID, ids, onDone, label) {
   const res = await client.runTool({ technician: config.technician, toolID, machineIDs: ids });
   const runID = typeof res === 'string' ? res : res?.runID;
   if (!runID) throw new Error('SimpleHelp returned no run ID');
   const start = Date.now();
+  let lastProgress = start, lastFetch = 0, fetchedAt = -1, done = 0;
   for (;;) {
     const st = await client.runStatus(runID);
-    job.step = `pc-report running: ${(st?.machines || []).filter((m) => m.complete).length} of ${ids.length} finished`;
-    if (st?.complete || Date.now() - start > RUN_TIMEOUT_MS) break;
+    const now = (st?.machines || []).filter((m) => m.complete).length;
+    if (now > done) { done = now; lastProgress = Date.now(); }
+    const finished = st?.complete || done >= ids.length;
+    if (done > fetchedAt && (finished || Date.now() - lastFetch > 20000)) {
+      fetchedAt = done; lastFetch = Date.now();
+      for (const r of (await client.runOutput(runID))?.machines || []) await onDone(r);
+    }
+    job.step = `${label}: ${done} of ${ids.length} finished`;
+    if (finished || Date.now() - lastProgress > STALL_MS || Date.now() - start > RUN_TIMEOUT_MS) break;
     await sleep(8000);
   }
-  return (await client.runOutput(runID))?.machines || [];
+  if (done > fetchedAt) for (const r of (await client.runOutput(runID))?.machines || []) await onDone(r);
 }
 
 async function rescan(ids, label) {
@@ -106,22 +120,28 @@ async function rescan(ids, label) {
     for (const m of known.filter((m) => !m.online)) job.results.push({ id: m.machineID, name: m.name, status: 'offline, skipped' });
     if (!online.length) throw new Error('none of these machines is online');
 
-    // Runs sometimes come back with empty output for a machine; one retry usually works.
-    let pending = online.map((m) => m.machineID);
-    const got = new Map();
-    for (let attempt = 1; attempt <= 2 && pending.length; attempt++) {
-      if (attempt === 2) job.step = `retrying ${pending.length} that came back empty`;
-      for (const r of await runReport(tool.toolID, pending)) {
-        if (r.stdout && r.stdout.trim().startsWith('{')) got.set(String(r.machineID), r.stdout);
-      }
-      pending = pending.filter((id) => !got.has(String(id)));
-    }
+    // Each finished machine is saved right away. A machine that finished with empty or broken
+    // output gets one retry (that usually works); one that never finished is not retried, since it
+    // would only stall again.
+    const saved = new Set(), empty = new Set();
+    const onDone = async (r) => {
+      const id = String(r.machineID);
+      if (saved.has(id)) return;
+      const out = (r.stdout || '').trim();
+      try { if (out.startsWith('{')) { JSON.parse(out); await writeFile(file(`${id}.json`), out, 'utf8'); saved.add(id); empty.delete(id); return; } } catch { /* not JSON */ }
+      empty.add(id);
+    };
+    await runReport(tool.toolID, online.map((m) => m.machineID), onDone, 'pc-report running');
+    const retry = [...empty];
+    empty.clear();   // from here, "empty" means the retry finished empty too
+    if (retry.length) await runReport(tool.toolID, retry, onDone, `retrying ${retry.length} that came back empty`);
     for (const m of online) {
-      const out = got.get(String(m.machineID));
-      if (!out) { job.results.push({ id: m.machineID, name: m.name, status: 'no output (still pending or empty)' }); continue; }
-      try { JSON.parse(out); } catch { job.results.push({ id: m.machineID, name: m.name, status: 'output was not valid JSON' }); continue; }
-      await writeFile(file(`${m.machineID}.json`), out, 'utf8');
-      job.results.push({ id: m.machineID, name: m.name, status: 'updated' });
+      const id = String(m.machineID);
+      const status = saved.has(id) ? 'updated'
+        : empty.has(id) ? 'finished but gave no report, twice'
+        : retry.includes(id) ? 'retry did not finish'
+        : 'did not finish (old Windows, or it went offline)';
+      job.results.push({ id: m.machineID, name: m.name, status });
     }
     job.state = 'done';
     job.step = `${job.results.filter((r) => r.status === 'updated').length} of ${ids.length} updated`;
