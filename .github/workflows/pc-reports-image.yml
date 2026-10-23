@@ -1,0 +1,56 @@
+# Builds ghcr.io/kstans/pc-reports when the PC Reports code changes. The image is tagged with the
+# version in kstans-pc-reports/umbrel-app.yml, plus "latest".
+#
+# Release steps: bump the version in umbrel-app.yml together with the code change and push; when
+# this build finishes, point docker-compose.yml at the new tag (pinned by digest) and push again.
+# umbrelOS offers the update after the second push, so it never sees a tag that doesn't exist yet.
+name: PC Reports image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kstans-pc-reports/app/**"
+      - ".github/workflows/pc-reports-image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read app version
+        id: v
+        run: echo "version=$(grep '^version:' kstans-pc-reports/umbrel-app.yml | cut -d'"' -f2)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: kstans-pc-reports/app
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/kstans/pc-reports:${{ steps.v.outputs.version }}
+            ghcr.io/kstans/pc-reports:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/kstans/umbrel-apps
+            org.opencontainers.image.description=PC Reports for umbrelOS (kstans-pc-reports)
+            org.opencontainers.image.version=${{ steps.v.outputs.version }}
+
+      - name: Show the digest to pin in docker-compose.yml
+        run: echo "ghcr.io/kstans/pc-reports:${{ steps.v.outputs.version }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
