@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in - PC Reports</title>
+<style>
+:root { --bg: #f6f7f9; --card: #ffffff; --ink: #1d2330; --muted: #6a7282; --line: #e3e6eb; --accent: #2563eb; --bad: #b91c1c; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #12151b; --card: #1a1f27; --ink: #e6e9ef; --muted: #98a1b2; --line: #2a313c; --accent: #6ea0ff; --bad: #f87171; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; padding: 16px; }
+.card { width: 100%; max-width: 360px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 28px 24px; }
+h1 { margin: 0 0 4px; font-size: 22px; }
+p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; }
+input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+button { width: 100%; margin-top: 16px; padding: 10px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.err { color: var(--bad); margin: 0 0 14px; }
+code { font-size: 13px; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>PC Reports</h1>
+  <form method="post" action="/login" __FORM__>
+    <p>Sign in to see the computers.</p>
+    __ERROR__
+    <input type="hidden" name="next" value="__NEXT__">
+    <label for="pw">Password</label>
+    <input id="pw" name="password" type="password" autocomplete="current-password" autofocus required>
+    <button type="submit">Sign in</button>
+  </form>
+  <div __SETUP__>
+    <p>No password is set yet. In umbrelOS, open this app's settings and add the custom environment
+      variable <code>PC_REPORTS_PASSWORD</code> on the <code>server</code> service, then restart the app.</p>
+  </div>
+</div>
+</body>
+</html>

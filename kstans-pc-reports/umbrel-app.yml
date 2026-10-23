@@ -1,0 +1,34 @@
+manifestVersion: 1
+id: kstans-pc-reports
+category: networking
+name: PC Reports
+version: "1.0.0"
+tagline: SimpleHelp computer inventory with health checks
+icon: https://cdn.jsdelivr.net/gh/kstans/umbrel-apps@main/kstans-pc-reports/icon.svg
+description: >
+  Lists every SimpleHelp machine by group and subgroup, with a report page per PC
+  (Windows version and updates, uptime, disk, memory, antivirus, remote-access
+  software, printers, installed programs). Rescan buttons run the read-only
+  SimpleHelp toolbox tool "pc-report" on a PC, a subgroup, a group or everything;
+  warnings can be marked OK.
+
+
+  Setup: before starting it, add these custom environment variables on the
+  "server" service in the app's settings: PC_REPORTS_PASSWORD (the sign-in
+  password), SIMPLEHELP_URL, SIMPLEHELP_TOKEN, SIMPLEHELP_TECHNICIAN and
+  SIMPLEHELP_CONNECT_ADDRESS (the SimpleHelp server's Tailscale IP). SimpleHelp's
+  Web API must allow this Umbrel's Tailscale address. For HTTPS on the tailnet,
+  run pc-reports-https.sh (E:\AI\Umbrel) once on the Umbrel.
+developer: kstans
+website: https://github.com/kstans/umbrel-apps
+dependencies: []
+repo: https://github.com/kstans/umbrel-apps
+support: https://github.com/kstans/umbrel-apps/issues
+port: 8765
+gallery: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+releaseNotes: ""
+submitter: kstans
+submission: https://github.com/kstans/umbrel-apps

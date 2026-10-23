@@ -1,0 +1,23 @@
+version: "3.7"
+
+services:
+  server:
+    image: node:22-alpine
+    restart: unless-stopped
+    # Host networking: SimpleHelp's Web API only accepts Tailscale addresses, and the Umbrel's
+    # Tailscale app also runs on the host network, so Tailscale Serve (:8444 -> 8765) and the
+    # SimpleHelp API calls both work at the Umbrel's own addresses.
+    network_mode: host
+    user: "1000:1000"
+    working_dir: /app
+    command: ["node", "server.mjs"]
+    environment:
+      PORT: "8765"
+      DATA_DIR: /data
+      TZ: America/New_York
+    # The password and SimpleHelp settings are deliberately not here: set PC_REPORTS_PASSWORD,
+    # SIMPLEHELP_URL, SIMPLEHELP_TOKEN, SIMPLEHELP_TECHNICIAN and SIMPLEHELP_CONNECT_ADDRESS as
+    # custom environment variables on the "server" service in the app's umbrelOS settings.
+    volumes:
+      - ${APP_DATA_DIR}/app:/app:ro
+      - ${APP_DATA_DIR}/data:/data
