@@ -4,7 +4,7 @@ services:
   server:
     # Built from app/ by .github/workflows/pc-reports-image.yml. The code lives in the image because
     # umbrelOS does not replace files inside an installed app's folder on update.
-    image: ghcr.io/kstans/pc-reports:1.0.1@sha256:7590fb46f299514f393bb2ff552b48fc96eb2b00e949c2b0c9113b87e815307a
+    image: ghcr.io/kstans/pc-reports:1.1.0@sha256:b9791ecddca87d0f76748e8ff9d99d736c3ac004964cd6b84d00ed5fb8107aec
     restart: unless-stopped
     # Host networking: SimpleHelp's Web API only accepts Tailscale addresses, and the Umbrel's
     # Tailscale app also runs on the host network, so Tailscale Serve (:8444 -> 8765) and the
