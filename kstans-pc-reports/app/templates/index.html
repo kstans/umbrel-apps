@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Computers</title>
+<title>PC Report</title>
 <style>
 :root {
   --bg: #f6f7f9; --card: #ffffff; --ink: #1d2330; --muted: #6a7282; --line: #e3e6eb; --accent: #2563eb;
@@ -20,7 +20,10 @@ h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
 .sub, .small { color: var(--muted); }
 .small { font-size: 12px; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 18px 0; }
-.stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+  font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.stat:hover { border-color: var(--accent); }
+.stat.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .stat .v { font-size: 22px; font-weight: 600; }
 .tools { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 10px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 input[type=search] { flex: 1; min-width: 220px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font: inherit; }
@@ -69,6 +72,11 @@ a.rs { text-decoration: none; }
   color: var(--ok); text-decoration: none; vertical-align: 1px; white-space: nowrap; }
 .rc:hover { background: var(--ok-bg); }
 @media print { .rc { display: none; } }
+/* PDF of a group or subgroup: opens one printable page with every scanned PC in it. */
+a.pdf { display: none; font-size: 12px; padding: 1px 8px; margin-left: 8px; border: 1px solid var(--line); border-radius: 6px;
+  color: var(--accent); background: var(--card); text-decoration: none; vertical-align: 1px; white-space: nowrap; }
+body.live a.pdf { display: inline-block; }
+a.pdf:hover { border-color: var(--accent); }
 .rs.armed { background: var(--accent); color: #fff; border-color: var(--accent); }
 .rs:disabled { opacity: 0.5; cursor: default; }
 .job { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent); }
@@ -80,7 +88,7 @@ a.rs { text-decoration: none; }
 </head>
 <body>
 <div class="wrap">
-  <h1>Computers</h1>
+  <h1>PC Report</h1>
   <div class="sub">Every machine in SimpleHelp by group. Built __BUILT__. Click a name for its PC report.</div>
   <div class="stats" id="stats"></div>
   <div class="tools">
@@ -107,14 +115,31 @@ const tops = [...new Set(all.map(m => topGroup(m.group)))].sort((a, b) => ((orde
 const live = m => m.flags.filter(f => !f.ok);
 const worst = m => live(m).some(f => f.s === 'bad') ? 2 : live(m).length ? 1 : 0;
 
-const S = (k, v, x = '') => `<div class="stat"><div class="small">${k}</div><div class="v">${v}</div><div class="small">${x}</div></div>`;
-const rep = all.filter(m => m.report);
-document.getElementById('stats').innerHTML =
-  S('Machines in SimpleHelp', all.length) + S('Online now', all.filter(m => m.online).length) +
-  S('PC reports', rep.length, 'click a name') +
-  S('Serious issues', rep.filter(m => worst(m) === 2).length, 'red flags, e.g. no updates') +
-  S('Worth a look', rep.filter(m => worst(m) === 1).length, 'amber flags only') +
-  S('Look healthy', rep.filter(m => worst(m) === 0).length);
+// The cards are filters: click one to list only those machines, click it again (or "Machines in
+// SimpleHelp") to show everything. Each card's test is the same one its count uses.
+const cards = {
+  all:    { k: 'Machines in SimpleHelp', test: m => true },
+  online: { k: 'Online now', test: m => m.online },
+  report: { k: 'PC reports', x: 'scanned at least once', test: m => m.report },
+  bad:    { k: 'Serious issues', x: 'red flags, e.g. no updates', test: m => m.report && worst(m) === 2 },
+  warn:   { k: 'Worth a look', x: 'amber flags only', test: m => m.report && worst(m) === 1 },
+  ok:     { k: 'Look healthy', test: m => m.report && worst(m) === 0 },
+};
+let card = 'all';
+function drawStats() {
+  document.getElementById('stats').innerHTML = Object.entries(cards).map(([id, c]) =>
+    `<button class="stat${card === id && id !== 'all' ? ' on' : ''}" type="button" data-card="${id}" title="${id === 'all' ? 'Show every machine' : 'Show only these; click again to show all'}">
+      <div class="small">${c.k}</div><div class="v">${all.filter(c.test).length}</div><div class="small">${c.x || ''}</div></button>`).join('');
+}
+document.getElementById('stats').addEventListener('click', e => {
+  const b = e.target.closest('.stat');
+  if (!b) return;
+  card = b.dataset.card === card ? 'all' : b.dataset.card;
+  // A card's count includes offline machines (except "Online now"), so the list should too.
+  document.getElementById('onl').checked = card === 'online';
+  drawStats(); draw();
+});
+drawStats();
 
 const row = m => `<tr class="${m.online ? '' : 'off'}">
   <td><span class="dot ${m.online ? 'on' : ''}" title="${m.online ? 'online' : 'offline'}"></span>${m.report ? `<a class="pc" href="pc/${esc(m.id)}.html">${esc(m.name)}</a>` : esc(m.name)}${rsBtn([m], m.name, 'Rescan')}${m.online ? `<a class="rc" href="simplehelp://?JW_machine=${encodeURIComponent(m.id)}" title="Open a remote control session in the SimpleHelp Technician Console">Remote</a>` : ''}
@@ -132,24 +157,25 @@ const head = '<tr><th>Computer</th><th>User</th><th>Windows</th><th>Last update<
 
 function draw() {
   const q = document.getElementById('q').value.toLowerCase(), onl = document.getElementById('onl').checked, att = document.getElementById('att').checked;
-  const keep = m => (!onl || m.online) && (!att || worst(m) > 0) &&
+  const narrow = q || att || card !== 'all';   // filtering, so hide groups and subgroups with no match
+  const keep = m => (!onl || m.online) && (!att || worst(m) > 0) && cards[card].test(m) &&
     (!q || `${m.name} ${m.host} ${m.user} ${m.model} ${m.os} ${m.group}`.toLowerCase().includes(q));
   let shown = 0;
   document.getElementById('groups').innerHTML = tops.map(t => {
     const inTop = all.filter(m => topGroup(m.group) === t), vis = inTop.filter(keep);
     shown += vis.length;
-    if (!vis.length && (q || att)) return '';
+    if (!vis.length && narrow) return '';
     const subs = [...new Set(inTop.map(m => m.group))].sort((a, b) => (a === t ? -1 : b === t ? 1 : a.localeCompare(b)));
     const body = subs.map(s => {
       const ms = vis.filter(m => m.group === s).sort((a, b) => b.online - a.online || worst(b) - worst(a) || a.name.localeCompare(b.name));
       const tot = inTop.filter(m => m.group === s);
-      if (!ms.length && (q || att || onl)) return subs.length > 1 && !q && !att ? `<h3>${esc(s === t ? t : s.slice(t.length + 1))} <span class="count">${tot.filter(m=>m.online).length} of ${tot.length} online</span></h3><div class="empty">Nothing online.</div>` : '';
-      return `${subs.length > 1 ? `<h3>${esc(s === t ? t + ' (no subgroup)' : s.slice(t.length + 1))} <span class="count">${tot.filter(m=>m.online).length} of ${tot.length} online</span>${rsBtn(tot, s, 'Rescan subgroup')}</h3>` : ''}
+      if (!ms.length && (narrow || onl)) return subs.length > 1 && !narrow ? `<h3>${esc(s === t ? t : s.slice(t.length + 1))} <span class="count">${tot.filter(m=>m.online).length} of ${tot.length} online</span></h3><div class="empty">Nothing online.</div>` : '';
+      return `${subs.length > 1 ? `<h3>${esc(s === t ? t + ' (no subgroup)' : s.slice(t.length + 1))} <span class="count">${tot.filter(m=>m.online).length} of ${tot.length} online</span>${rsBtn(tot, s, 'Rescan subgroup')}${pdfLink(tot, s, true)}</h3>` : ''}
         <div class="tw"><table><thead>${head}</thead><tbody>${ms.map(row).join('')}</tbody></table></div>`;
     }).join('');
     const on = inTop.filter(m => m.online).length, red = inTop.filter(m => m.report && worst(m) === 2).length;
     return `<details class="group" id="g-${esc(t.replace(/\W+/g, '-'))}" open><summary><h2>${esc(t)}</h2>
-      <span class="count">${on} online of ${inTop.length}${red ? ` &middot; <span style="color:var(--bad)">${red} with serious issues</span>` : ''}</span>${rsBtn(inTop, t, 'Rescan group')}</summary><div class="sg">${body}</div></details>`;
+      <span class="count">${on} online of ${inTop.length}${red ? ` &middot; <span style="color:var(--bad)">${red} with serious issues</span>` : ''}</span>${rsBtn(inTop, t, 'Rescan group')}${pdfLink(inTop, t, false)}</summary><div class="sg">${body}</div></details>`;
   }).join('');
   document.getElementById('n').textContent = `${shown} shown`;
 }
@@ -159,6 +185,14 @@ function rsBtn(ms, label, text) {
   const ids = ms.filter(m => m.online).map(m => m.id);
   if (!ids.length) return '';
   return `<button class="rs" type="button" data-ids="${esc(ids.join(','))}" data-label="${esc(label)}" data-text="${esc(text)}">${esc(text)}</button>`;
+}
+// exact: just this subgroup; otherwise the group and everything under it. Offline PCs are included
+// when they have a report.
+function pdfLink(ms, group, exact) {
+  const n = ms.filter(m => m.report).length;
+  if (!n) return '';
+  return `<a class="pdf" href="print?group=${encodeURIComponent(group)}${exact ? '&exact=1' : ''}" target="_blank" rel="noopener"
+    title="Open the ${n} scanned PC report${n === 1 ? '' : 's'} as one document to save as PDF">PDF (${n})</a>`;
 }
 const jobBox = document.getElementById('job');
 let myJob = null;
@@ -223,7 +257,24 @@ if (location.protocol.startsWith('http')) {
 document.getElementById('refresh').insertAdjacentHTML('beforebegin', rsBtn(all, 'all online PCs', 'Rescan all'));
 document.getElementById('nav').innerHTML = tops.map(t => `<a href="#g-${esc(t.replace(/\W+/g, '-'))}">${esc(t)}</a>`).join('');
 ['q', 'onl', 'att'].forEach(id => document.getElementById(id).addEventListener('input', draw));
+
+// Reload every hour to show what the server picked up (it re-reads SimpleHelp every 15 minutes and
+// scans new PCs), keeping the search, checkboxes and card filter. Waits while a job is running.
+const KEEP = 'pcr-view';
+try {
+  const v = JSON.parse(sessionStorage.getItem(KEEP) || 'null');
+  if (v) { document.getElementById('q').value = v.q; document.getElementById('onl').checked = v.onl; document.getElementById('att').checked = v.att;
+    if (cards[v.card]) card = v.card; drawStats(); }
+} catch { /* storage blocked: start fresh */ }
+function hourly() {
+  if (!jobBox.hidden && jobBox.classList.contains('running')) return setTimeout(hourly, 60000);
+  try { sessionStorage.setItem(KEEP, JSON.stringify({ q: document.getElementById('q').value, onl: document.getElementById('onl').checked,
+    att: document.getElementById('att').checked, card, y: scrollY })); } catch { /* storage blocked */ }
+  location.reload();
+}
+if (location.protocol.startsWith('http')) setTimeout(hourly, 60 * 60 * 1000);
 draw();
+try { const y = JSON.parse(sessionStorage.getItem(KEEP) || 'null')?.y; if (y) scrollTo(0, y); sessionStorage.removeItem(KEEP); } catch { /* storage blocked */ }
 </script>
 </body>
 </html>

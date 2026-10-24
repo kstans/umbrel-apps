@@ -9,6 +9,12 @@ const T = join(dirname(fileURLToPath(import.meta.url)), '..', 'templates');
 const pcTemplate = readFileSync(join(T, 'pc.html'), 'utf8');
 const indexTemplate = readFileSync(join(T, 'index.html'), 'utf8');
 const loginTemplate = readFileSync(join(T, 'login.html'), 'utf8');
+const printTemplate = readFileSync(join(T, 'print.html'), 'utf8');
+// Shared by the PC page and the print page; served as static files.
+export const assets = {
+  '/report.js': { type: 'text/javascript; charset=utf-8', body: readFileSync(join(T, 'report.js'), 'utf8') },
+  '/report.css': { type: 'text/css; charset=utf-8', body: readFileSync(join(T, 'report.css'), 'utf8') },
+};
 
 // GoTo alone would also catch GoToMeeting and GoTo Opener, which are not remote control.
 const RAT = /AnyDesk|TeamViewer|ScreenConnect|ConnectWise|Splashtop|RustDesk|LogMeIn|GoTo Resolve|GoToAssist|RemotePC|Supremo|UltraViewer|AeroAdmin|Chrome Remote Desktop|Atera|NinjaRMM|Zoho Assist|MeshAgent|TruGrid/i;
@@ -101,6 +107,12 @@ export function renderPc(json, { title, back, id, acks }) {
     .replace("'__ID__'", () => `'${jsStr(id)}'`)
     .replace('__ACKS__', () => embed(JSON.stringify(acks || {})))
     .replace('__DATA__', () => embed(json));
+}
+
+// A group or subgroup as one printable document. pcs: [{ title, group, online, acks, report }] where
+// report is the parsed pc-report JSON; missing: names of machines in the group never scanned.
+export function renderPrint({ title, pcs, missing }) {
+  return printTemplate.replace('__DATA__', () => embed(JSON.stringify({ title, built: built(new Date()), pcs, missing })));
 }
 
 export function renderLogin({ error = '', next = '/', setup = false } = {}) {

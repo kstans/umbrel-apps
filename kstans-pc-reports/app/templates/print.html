@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PC Report</title>
+<link rel="stylesheet" href="report.css">
+<style>
+.cover h1 { font-size: 30px; }
+.cover table { margin-top: 12px; }
+.pcpage { border-top: 3px solid var(--line); margin-top: 32px; padding-top: 24px; }
+.bar-top { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 10px 0; display: flex; gap: 12px; align-items: center; }
+@media print { .bar-top { display: none; } .pcpage { break-before: page; border: 0; margin: 0; padding-top: 0; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar-top"><button class="pdf" type="button" onclick="window.print()">Save as PDF</button>
+    <span class="small">In the print window, choose "Save as PDF" as the printer.</span></div>
+  <div id="app"></div>
+</div>
+<script id="data" type="application/json">__DATA__</script>
+<script src="report.js"></script>
+<script>
+// One combined document for a group or subgroup: a cover page, then each scanned PC (online or not)
+// on its own page, drawn by the same code as the PC page.
+const P = JSON.parse(document.getElementById('data').textContent);
+const esc = v => v == null ? '' : String(v).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+document.title = `${P.title} - PC Report`;
+const pages = P.pcs.map(p => { try { return pcReport(p.report, { title: p.title, acks: p.acks, print: true }).html; }
+  catch (e) { return `<header><h1>${esc(p.title)}</h1></header><p class="small">This report could not be read.</p>`; } });
+document.getElementById('app').innerHTML = `
+<div class="cover"><header><div><h1>${esc(P.title)}</h1><div class="sub">PC Report &middot; ${P.pcs.length} computer${P.pcs.length === 1 ? '' : 's'} &middot; built ${esc(P.built)}</div></div></header>
+<section><h2>Included</h2><table><thead><tr><th>Computer</th><th>Group</th><th>Report collected</th><th>Status now</th></tr></thead><tbody>
+${P.pcs.map(p => `<tr><td>${esc(p.title)}</td><td>${esc(p.group)}</td><td>${esc(String(p.report.Collected || '').slice(0, 16))}</td><td>${p.online ? 'online' : 'offline'}</td></tr>`).join('')}</tbody></table></section>
+${P.missing.length ? `<section><h2>Never scanned (${P.missing.length})</h2><p class="small">${P.missing.map(esc).join(', ')}</p></section>` : ''}</div>
+${pages.map(h => `<div class="pcpage">${h}</div>`).join('')}`;
+if (P.pcs.length) setTimeout(() => window.print(), 600);
+</script>
+</body>
+</html>

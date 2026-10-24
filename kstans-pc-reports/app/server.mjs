@@ -2,7 +2,8 @@
 // refresh the machine list and mark warnings OK. Runs on the Umbrel (kstans-pc-reports) behind a
 // password; HTTPS comes from Tailscale Serve on the Umbrel.
 //
-// A rescan runs the read-only SimpleHelp toolbox tool "pc-report" and nothing else.
+// A rescan runs the read-only SimpleHelp toolbox tool "pc-report" and nothing else. In the background
+// the server re-reads the machine list every 15 minutes and scans PCs that have never been scanned.
 //
 // Environment (set in the Umbrel app settings, never in this repo):
 //   PC_REPORTS_PASSWORD   sign-in password
@@ -14,7 +15,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHmac, randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 import { loadConfig, SimpleHelpClient } from './lib/simplehelp.mjs';
-import { indexRows, renderIndex, renderPc, renderLogin } from './lib/render.mjs';
+import { indexRows, renderIndex, renderPc, renderPrint, renderLogin, assets } from './lib/render.mjs';
 
 const DATA = process.env.DATA_DIR || '/data';
 const PORT = Number(process.env.PORT || 8765);
@@ -166,6 +167,32 @@ async function refreshList() {
   job.finishedAt = new Date().toISOString();
 }
 
+// ---- Background: keep the list fresh and scan new PCs ------------------------------------------
+// Every AUTO_MS the machine list is re-read from SimpleHelp (one API call, nothing runs on a PC), and
+// any online machine that has never had a report gets one scan. A machine is tried at most once a
+// day (autoscan.json: { "<machineID>": <last try ms> }), so a PC that can't run pc-report (old
+// Windows) isn't retried every pass. Skipped while any other job runs.
+const AUTO_MS = 15 * 60 * 1000;
+async function autoTick() {
+  if (config.missing.length || job?.state === 'running') return;
+  try {
+    const machines = await refreshMachines();
+    const scanned = new Set((await readdir(DATA)).filter((n) => /^SG_-?\d+\.json$/.test(n)).map((n) => n.slice(0, -5)));
+    const tried = await readJson('autoscan.json', {});
+    const fresh = [...machines.values()].filter((m) => m.online && !scanned.has(String(m.machineID)) && !(Date.now() - (tried[m.machineID] || 0) < 864e5));
+    if (!fresh.length) return;
+    for (const m of fresh) tried[m.machineID] = Date.now();
+    await writeFile(file('autoscan.json'), JSON.stringify(tried, null, 2), 'utf8');
+    const names = fresh.map((m) => m.name).join(', ');
+    console.log(`auto-scan: ${fresh.length} never-scanned PC(s) online: ${names}`);
+    await rescan(fresh.map((m) => String(m.machineID)), `new PC${fresh.length === 1 ? '' : 's'}: ${names}`.slice(0, 120));
+  } catch (e) {
+    console.log(`auto-scan pass failed: ${client.scrub(e.message)}`);
+  }
+}
+setTimeout(autoTick, 60 * 1000);
+setInterval(autoTick, AUTO_MS);
+
 // ---- Mark OK: acks.json is { "<machineID>": { "<flag key>": { "at": "<date>" } } } -----------
 let ackChain = Promise.resolve();
 async function setAck(id, key, ok) {
@@ -247,6 +274,25 @@ createServer(async (req, res) => {
     if (path === '/' || path === '/index.html') {
       const machines = await readJson('machines.json', []);
       return html(res, 200, renderIndex(indexRows(machines, await loadReports(), await readJson('acks.json', {}))));
+    }
+    if (assets[path]) return res.writeHead(200, { 'Content-Type': assets[path].type, 'Cache-Control': 'no-cache' }).end(assets[path].body);
+    // One printable document for a group (and its subgroups) or, with exact=1, one subgroup:
+    // every machine in it that has a report, online or not.
+    if (path === '/print') {
+      const g = url.searchParams.get('group') || '', exact = url.searchParams.get('exact') === '1';
+      if (!g) return html(res, 400, 'group is required');
+      const inGroup = (m) => { const mg = m.group || 'Ungrouped'; return mg === g || (!exact && mg.startsWith(g + '/')); };
+      const ms = (await readJson('machines.json', [])).filter(inGroup)
+        .sort((a, b) => (a.group || '').localeCompare(b.group || '') || String(a.name).localeCompare(String(b.name)));
+      const acks = await readJson('acks.json', {}), pcs = [], missing = [];
+      for (const m of ms) {
+        const id = String(m.machineID);
+        let report = null;
+        try { if (existsSync(file(`${id}.json`))) report = JSON.parse(await readFile(file(`${id}.json`), 'utf8')); } catch { /* unreadable: treated as never scanned */ }
+        if (report) pcs.push({ title: m.name, group: m.group || 'Ungrouped', online: !!m.online, acks: acks[id] || {}, report });
+        else missing.push(m.name);
+      }
+      return html(res, 200, renderPrint({ title: g, pcs, missing }));
     }
     const pc = path.match(/^\/pc\/(SG_-?\d+)\.html$/);
     if (pc && existsSync(file(`${pc[1]}.json`))) {
