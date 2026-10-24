@@ -79,8 +79,10 @@ async function loadReports() {
   return reports;
 }
 
-// ---- Jobs: rescan and refresh (one at a time) -----------------------------------------------
-let job = null;
+// ---- Jobs: rescan and refresh ---------------------------------------------------------------
+// "job" is the one rescan or refresh started from a button (one at a time; the page shows it).
+// "auto" is the background scan of new PCs; it has its own slot so it never blocks the buttons.
+let job = null, auto = null;
 
 // Runs pc-report on ids and hands each machine's output to onDone as soon as it finishes, so pages
 // fill in during a long scan. Stops waiting when every machine is done, when nothing new has
@@ -88,7 +90,7 @@ let job = null;
 // Output is re-read only when more machines have finished, at most every 20 s: it carries every
 // finished machine's full report each time.
 const STALL_MS = 3 * 60 * 1000;
-async function runReport(toolID, ids, onDone, label) {
+async function runReport(toolID, ids, onDone, label, j) {
   const res = await client.runTool({ technician: config.technician, toolID, machineIDs: ids });
   const runID = typeof res === 'string' ? res : res?.runID;
   if (!runID) throw new Error('SimpleHelp returned no run ID');
@@ -103,22 +105,23 @@ async function runReport(toolID, ids, onDone, label) {
       fetchedAt = done; lastFetch = Date.now();
       for (const r of (await client.runOutput(runID))?.machines || []) await onDone(r);
     }
-    job.step = `${label}: ${done} of ${ids.length} finished`;
+    j.step = `${label}: ${done} of ${ids.length} finished`;
     if (finished || Date.now() - lastProgress > STALL_MS || Date.now() - start > RUN_TIMEOUT_MS) break;
     await sleep(8000);
   }
   if (done > fetchedAt) for (const r of (await client.runOutput(runID))?.machines || []) await onDone(r);
 }
 
-async function rescan(ids, label) {
-  job = { id: Date.now(), label, state: 'running', step: 'checking machines', startedAt: new Date().toISOString(), results: [] };
+async function rescan(ids, label, background = false) {
+  const j = { id: Date.now(), label, state: 'running', step: 'checking machines', startedAt: new Date().toISOString(), results: [] };
+  if (background) auto = j; else job = j;
   try {
     const machines = await refreshMachines();
     const tool = ((await client.listTools(config.technician)) || []).find((t) => t.name?.trim().toLowerCase() === TOOL_NAME);
     if (!tool) throw new Error(`"${TOOL_NAME}" is not in ${config.technician}'s toolbox`);
     const known = ids.map((id) => machines.get(id)).filter(Boolean);
     const online = known.filter((m) => m.online);
-    for (const m of known.filter((m) => !m.online)) job.results.push({ id: m.machineID, name: m.name, status: 'offline, skipped' });
+    for (const m of known.filter((m) => !m.online)) j.results.push({ id: m.machineID, name: m.name, status: 'offline, skipped' });
     if (!online.length) throw new Error('none of these machines is online');
 
     // Each finished machine is saved right away. A machine that finished with empty or broken
@@ -132,25 +135,26 @@ async function rescan(ids, label) {
       try { if (out.startsWith('{')) { JSON.parse(out); await writeFile(file(`${id}.json`), out, 'utf8'); saved.add(id); empty.delete(id); return; } } catch { /* not JSON */ }
       empty.add(id);
     };
-    await runReport(tool.toolID, online.map((m) => m.machineID), onDone, 'pc-report running');
+    await runReport(tool.toolID, online.map((m) => m.machineID), onDone, 'pc-report running', j);
     const retry = [...empty];
     empty.clear();   // from here, "empty" means the retry finished empty too
-    if (retry.length) await runReport(tool.toolID, retry, onDone, `retrying ${retry.length} that came back empty`);
+    if (retry.length) await runReport(tool.toolID, retry, onDone, `retrying ${retry.length} that came back empty`, j);
     for (const m of online) {
       const id = String(m.machineID);
       const status = saved.has(id) ? 'updated'
         : empty.has(id) ? 'finished but gave no report, twice'
         : retry.includes(id) ? 'retry did not finish'
         : 'did not finish (old Windows, or it went offline)';
-      job.results.push({ id: m.machineID, name: m.name, status });
+      j.results.push({ id: m.machineID, name: m.name, status });
     }
-    job.state = 'done';
-    job.step = `${job.results.filter((r) => r.status === 'updated').length} of ${ids.length} updated`;
+    j.state = 'done';
+    j.step = `${j.results.filter((r) => r.status === 'updated').length} of ${ids.length} updated`;
   } catch (e) {
-    job.state = 'failed';
-    job.step = client.scrub(e.message);
+    j.state = 'failed';
+    j.step = client.scrub(e.message);
   }
-  job.finishedAt = new Date().toISOString();
+  j.finishedAt = new Date().toISOString();
+  if (background) console.log(`auto-scan ${j.state}: ${j.step}`);
 }
 
 // Re-read groups, names and online status from SimpleHelp. Runs nothing on any PC.
@@ -170,22 +174,25 @@ async function refreshList() {
 // ---- Background: keep the list fresh and scan new PCs ------------------------------------------
 // Every AUTO_MS the machine list is re-read from SimpleHelp (one API call, nothing runs on a PC), and
 // any online machine that has never had a report gets one scan. A machine is tried at most once a
-// day (autoscan.json: { "<machineID>": <last try ms> }), so a PC that can't run pc-report (old
-// Windows) isn't retried every pass. Skipped while any other job runs.
+// day (autoscan.json: { "<machineID>": <last try ms> }). Machines that can't run pc-report (not
+// Windows, or older than Windows 8 / Server 2012) are left out: they only sit "running" until the
+// stall timeout. It runs alongside button jobs; only one background scan at a time.
 const AUTO_MS = 15 * 60 * 1000;
+// SimpleHelp's os text, e.g. "Windows 11 (25H2) Intel/64", "Windows 7 (7601) Intel/64", "Windows Server 2008 R2 ...".
+const canRun = (os) => /Windows/i.test(os || '') && !/Windows (XP|Vista|7|8)\b(?!\.1)|Server 200[0-8]/i.test(os || '');
 async function autoTick() {
-  if (config.missing.length || job?.state === 'running') return;
+  if (config.missing.length || auto?.state === 'running') return;
   try {
     const machines = await refreshMachines();
     const scanned = new Set((await readdir(DATA)).filter((n) => /^SG_-?\d+\.json$/.test(n)).map((n) => n.slice(0, -5)));
     const tried = await readJson('autoscan.json', {});
-    const fresh = [...machines.values()].filter((m) => m.online && !scanned.has(String(m.machineID)) && !(Date.now() - (tried[m.machineID] || 0) < 864e5));
+    const fresh = [...machines.values()].filter((m) => m.online && canRun(m.os) && !scanned.has(String(m.machineID)) && !(Date.now() - (tried[m.machineID] || 0) < 864e5));
     if (!fresh.length) return;
     for (const m of fresh) tried[m.machineID] = Date.now();
     await writeFile(file('autoscan.json'), JSON.stringify(tried, null, 2), 'utf8');
     const names = fresh.map((m) => m.name).join(', ');
     console.log(`auto-scan: ${fresh.length} never-scanned PC(s) online: ${names}`);
-    await rescan(fresh.map((m) => String(m.machineID)), `new PC${fresh.length === 1 ? '' : 's'}: ${names}`.slice(0, 120));
+    await rescan(fresh.map((m) => String(m.machineID)), `new PC${fresh.length === 1 ? '' : 's'}: ${names}`.slice(0, 120), true);
   } catch (e) {
     console.log(`auto-scan pass failed: ${client.scrub(e.message)}`);
   }

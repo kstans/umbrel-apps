@@ -2,7 +2,7 @@ manifestVersion: 1
 id: kstans-pc-reports
 category: networking
 name: PC Reports
-version: "1.1.0"
+version: "1.1.1"
 tagline: SimpleHelp computer inventory with health checks
 icon: https://cdn.jsdelivr.net/gh/kstans/umbrel-apps@main/kstans-pc-reports/icon.svg
 description: >
@@ -30,6 +30,6 @@ gallery: []
 path: ""
 defaultUsername: ""
 defaultPassword: ""
-releaseNotes: "Renamed to PC Report. Summary cards filter the list. Save as PDF for each PC, and PDF buttons for each group and subgroup (scanned PCs, online or not). The machine list refreshes on its own, and a PC that has never been scanned is scanned when it comes online."
+releaseNotes: "Fix: the background scan of new PCs no longer greys out the Rescan and Refresh buttons, and it skips PCs too old to run the scan (before Windows 8 / Server 2012). 1.1.0: renamed to PC Report, filtering cards, PDFs per PC, subgroup and group, automatic list refresh and scans of new PCs."
 submitter: kstans
 submission: https://github.com/kstans/umbrel-apps
