@@ -2,7 +2,8 @@
 // refresh the machine list and mark warnings OK. Runs on the Umbrel (kstans-pc-reports) behind a
 // password; HTTPS comes from Tailscale Serve on the Umbrel.
 //
-// A rescan runs the read-only SimpleHelp toolbox tool "pc-report" and nothing else. In the background
+// A rescan runs the read-only SimpleHelp toolbox tool "pc-report" (or "pc-report-legacy" on Windows too old
+// for it) and nothing else. In the background
 // the server re-reads the machine list every 15 minutes and scans PCs that have never been scanned.
 //
 // Environment (set in the Umbrel app settings, never in this repo):
@@ -20,7 +21,9 @@ import { indexRows, renderIndex, renderPc, renderPrint, renderLogin, assets } fr
 const DATA = process.env.DATA_DIR || '/data';
 const PORT = Number(process.env.PORT || 8765);
 const PASSWORD = process.env.PC_REPORTS_PASSWORD || '';
-const TOOL_NAME = 'pc-report';   // the only tool this app will ever run
+// The only tools this app will ever run, both read-only. pc-report-legacy is the PowerShell 2.0 version
+// for Windows 7 / Server 2008 R2 and older, where pc-report can't load.
+const TOOL_NAME = 'pc-report', LEGACY_TOOL = 'pc-report-legacy';
 const RUN_TIMEOUT_MS = 8 * 60 * 1000;
 const ID = /^SG_-?\d+$/;
 
@@ -117,12 +120,20 @@ async function rescan(ids, label, background = false) {
   if (background) auto = j; else job = j;
   try {
     const machines = await refreshMachines();
-    const tool = ((await client.listTools(config.technician)) || []).find((t) => t.name?.trim().toLowerCase() === TOOL_NAME);
+    const tools = (await client.listTools(config.technician)) || [];
+    const byName = (n) => tools.find((t) => t.name?.trim().toLowerCase() === n);
+    const tool = byName(TOOL_NAME), legacy = byName(LEGACY_TOOL);
     if (!tool) throw new Error(`"${TOOL_NAME}" is not in ${config.technician}'s toolbox`);
     const known = ids.map((id) => machines.get(id)).filter(Boolean);
     const online = known.filter((m) => m.online);
     for (const m of known.filter((m) => !m.online)) j.results.push({ id: m.machineID, name: m.name, status: 'offline, skipped' });
     if (!online.length) throw new Error('none of these machines is online');
+    // Old Windows goes straight to the legacy tool; anything that isn't Windows is skipped.
+    const notWin = online.filter((m) => !/Windows/i.test(m.os || ''));
+    for (const m of notWin) j.results.push({ id: m.machineID, name: m.name, status: 'not Windows, skipped' });
+    const old = online.filter((m) => /Windows/i.test(m.os || '') && !canRun(m.os));
+    const modern = online.filter((m) => canRun(m.os));
+    if (old.length && !legacy) for (const m of old) j.results.push({ id: m.machineID, name: m.name, status: `too old for pc-report; add "${LEGACY_TOOL}" to the toolbox` });
 
     // Each finished machine is saved right away. A machine that finished with empty or broken
     // output gets one retry (that usually works); one that never finished is not retried, since it
@@ -135,11 +146,18 @@ async function rescan(ids, label, background = false) {
       try { if (out.startsWith('{')) { JSON.parse(out); await writeFile(file(`${id}.json`), out, 'utf8'); saved.add(id); empty.delete(id); return; } } catch { /* not JSON */ }
       empty.add(id);
     };
-    await runReport(tool.toolID, online.map((m) => m.machineID), onDone, 'pc-report running', j);
+    if (modern.length) await runReport(tool.toolID, modern.map((m) => m.machineID), onDone, 'pc-report running', j);
+    if (old.length && legacy) await runReport(legacy.toolID, old.map((m) => m.machineID), onDone, 'pc-report-legacy running', j);
     const retry = [...empty];
     empty.clear();   // from here, "empty" means the retry finished empty too
-    if (retry.length) await runReport(tool.toolID, retry, onDone, `retrying ${retry.length} that came back empty`, j);
-    for (const m of online) {
+    const isOld = (id) => old.some((m) => String(m.machineID) === id);
+    const retryModern = retry.filter((id) => !isOld(id)), retryOld = retry.filter(isOld);
+    if (retryModern.length) await runReport(tool.toolID, retryModern, onDone, `retrying ${retryModern.length} that came back empty`, j);
+    if (retryOld.length) await runReport(legacy.toolID, retryOld, onDone, `retrying ${retryOld.length} old PC(s) that came back empty`, j);
+    // Empty twice from pc-report: one try with the legacy tool (an old PowerShell the OS name hid).
+    const last = [...empty].filter((id) => legacy && modern.some((m) => String(m.machineID) === id));
+    if (last.length) { for (const id of last) empty.delete(id); await runReport(legacy.toolID, last, onDone, `trying pc-report-legacy on ${last.length}`, j); }
+    for (const m of [...modern, ...(legacy ? old : [])]) {
       const id = String(m.machineID);
       const status = saved.has(id) ? 'updated'
         : empty.has(id) ? 'finished but gave no report, twice'
@@ -174,9 +192,9 @@ async function refreshList() {
 // ---- Background: keep the list fresh and scan new PCs ------------------------------------------
 // Every AUTO_MS the machine list is re-read from SimpleHelp (one API call, nothing runs on a PC), and
 // any online machine that has never had a report gets one scan. A machine is tried at most once a
-// day (autoscan.json: { "<machineID>": <last try ms> }). Machines that can't run pc-report (not
-// Windows, or older than Windows 8 / Server 2012) are left out: they only sit "running" until the
-// stall timeout. It runs alongside button jobs; only one background scan at a time.
+// day (autoscan.json: { "<machineID>": <last try ms> }). Machines that aren't Windows are left out;
+// Windows older than 8 / Server 2012 gets pc-report-legacy (see rescan). It runs alongside button
+// jobs; only one background scan at a time.
 const AUTO_MS = 15 * 60 * 1000;
 // SimpleHelp's os text, e.g. "Windows 11 (25H2) Intel/64", "Windows 7 (7601) Intel/64", "Windows Server 2008 R2 ...".
 const canRun = (os) => /Windows/i.test(os || '') && !/Windows (XP|Vista|7|8)\b(?!\.1)|Server 200[0-8]/i.test(os || '');
@@ -186,7 +204,7 @@ async function autoTick() {
     const machines = await refreshMachines();
     const scanned = new Set((await readdir(DATA)).filter((n) => /^SG_-?\d+\.json$/.test(n)).map((n) => n.slice(0, -5)));
     const tried = await readJson('autoscan.json', {});
-    const fresh = [...machines.values()].filter((m) => m.online && canRun(m.os) && !scanned.has(String(m.machineID)) && !(Date.now() - (tried[m.machineID] || 0) < 864e5));
+    const fresh = [...machines.values()].filter((m) => m.online && /Windows/i.test(m.os || '') && !scanned.has(String(m.machineID)) && !(Date.now() - (tried[m.machineID] || 0) < 864e5));
     if (!fresh.length) return;
     for (const m of fresh) tried[m.machineID] = Date.now();
     await writeFile(file('autoscan.json'), JSON.stringify(tried, null, 2), 'utf8');

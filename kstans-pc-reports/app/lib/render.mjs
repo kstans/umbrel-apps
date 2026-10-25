@@ -28,14 +28,27 @@ const uniq = (xs) => [...new Map(xs.map((x) => [x.toLowerCase(), x])).values()];
 // Drives with no size (empty card readers, unmapped letters) come through with FreePercent {}.
 const disksOf = (r) => (r.Disks || []).filter((d) => d && typeof d.SizeGB === 'number' && d.SizeGB > 0);
 
+// Newest Windows update installed: the newest of Get-HotFix's list (Hotfixes) and Windows Update's own
+// history (UpdateHistory, KB-numbered entries only, so driver updates don't count). Get-HotFix comes
+// back empty on some fully patched PCs. Returns { id, on } or null.
+export function newestUpdate(r) {
+  const c = [];
+  for (const h of r.Hotfixes || []) if (h?.InstalledOn) c.push({ id: h.ID, on: h.InstalledOn });
+  for (const u of r.UpdateHistory || []) {
+    const kb = String(u?.Title || '').match(/KB\d{6,8}/);
+    if (kb && u.InstalledOn) c.push({ id: kb[0], on: u.InstalledOn });
+  }
+  return c.sort((a, b) => b.on.localeCompare(a.on))[0] || null;
+}
+
 // Each flag is { s: severity, t: chip text, k: key }. The key is what an "OK" mark is stored under,
 // so it must not change between scans.
 export function getFlags(r) {
   const f = [];
-  const hot = (r.Hotfixes || []).filter((h) => h.InstalledOn).sort((a, b) => b.InstalledOn.localeCompare(a.InstalledOn));
-  if (!hot.length) f.push({ s: 'bad', t: 'No updates listed', k: 'updates' });
+  const latest = newestUpdate(r);
+  if (!latest) f.push({ s: 'bad', t: 'No updates listed', k: 'updates' });
   else {
-    const age = Math.round((when(r.Collected) - when(hot[0].InstalledOn)) / 864e5);
+    const age = Math.round((when(r.Collected) - when(latest.on)) / 864e5);
     if (age > 45) f.push({ s: 'bad', t: `No updates ${age} d`, k: 'updates' });
   }
   if (r.OS?.UptimeDays > 30) f.push({ s: 'warn', t: `Up ${Math.floor(r.OS.UptimeDays)} d`, k: 'uptime' });
@@ -69,7 +82,7 @@ export function indexRows(machines, reports, acks) {
       try { flags = getFlags(r).map((x) => ({ ...x, ok: !!acks[m.machineID]?.[x.k] })); }
       catch { flags = [{ s: 'warn', t: 'Report unreadable', k: 'unreadable', ok: false }]; }
     }
-    const hot = r ? (r.Hotfixes || []).filter((h) => h.InstalledOn).sort((a, b) => b.InstalledOn.localeCompare(a.InstalledOn)) : [];
+    const latest = r ? newestUpdate(r) : null;
     const c = r ? disksOf(r).find((d) => d.Drive === 'C:') : null;
     return {
       id: m.machineID, name: m.name, online: !!m.online, host: m.hostname,
@@ -79,7 +92,7 @@ export function indexRows(machines, reports, acks) {
       lastSeen: m.lastRegistrationTime ? ymd(new Date(Number(m.lastRegistrationTime))) : '',
       report: !!r,
       collected: r ? String(r.Collected).slice(0, 16) : '',
-      lastUpdate: hot.length ? hot[0].InstalledOn.slice(0, 10) : '',
+      lastUpdate: latest ? latest.on.slice(0, 10) : '',
       uptime: r ? Math.floor(r.OS?.UptimeDays ?? 0) : null,
       cFree: c ? c.FreePercent : null,
       model: r ? `${r.Computer?.Manufacturer || ''} ${r.Computer?.Model || ''}`.trim() : '',

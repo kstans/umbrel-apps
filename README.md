@@ -11,8 +11,8 @@ Add `https://github.com/kstans/umbrel-apps` under App Store → Community App St
   WebUI :5080, RTSP :8554, HLS :8888, WebRTC :8889 / :8189udp. Set `WYZE_EMAIL`, `WYZE_PASSWORD`,
   `WYZE_API_ID`, `WYZE_API_KEY` as custom environment on the `server` service before first use.
   Contains no credentials.
-- **kstans-pc-reports** — PC Reports 1.1.1: every SimpleHelp machine by group, with a report page
-  per PC, rescan buttons (they run only the read-only toolbox tool `pc-report`), "Mark OK" for
+- **kstans-pc-reports** — PC Reports 1.2.0: every SimpleHelp machine by group, with a report page
+  per PC, rescan buttons (they run only the read-only toolbox tools `pc-report` and, for Windows 7 / Server 2008 R2, `pc-report-legacy`), "Mark OK" for
   warnings, filter cards and PDFs per PC, subgroup and group. Every 15 minutes it re-reads the
   machine list and scans online PCs that have never been scanned (each at most once a day, Windows 8 / Server 2012 or later, without blocking the buttons). Runs the image `ghcr.io/kstans/pc-reports` (built from `app/` by GitHub Actions), host-networked on :8765, behind a password. To release: bump `version` in `umbrel-app.yml` with the code change and push; when the "PC Reports image" build finishes, pin the new tag and digest in `docker-compose.yml` and push again.
   Set `PC_REPORTS_PASSWORD`, `SIMPLEHELP_URL`, `SIMPLEHELP_TOKEN`, `SIMPLEHELP_TECHNICIAN` and

@@ -36,9 +36,14 @@ function pcReport(d, { title: TITLE = '', back: BACK = '', id: MID = '', acks: A
   // "OK" mark is stored under, so it must stay the same from one scan to the next (same keys as
   // lib/render.mjs getFlags).
   const flags = [];
-  const lastPatch = hot.length ? daysAgo(hot[0].InstalledOn) : null;
-  if (lastPatch === null) flags.push(['bad', 'No Windows updates listed', 'The hotfix list is empty.', 'updates']);
-  else if (lastPatch > 45) flags.push(['bad', `No Windows updates in ${lastPatch} days`, `Newest is ${esc(hot[0].ID)}, installed ${esc(hot[0].InstalledOn.slice(0,10))}.`, 'updates']);
+  // Newest of the hotfix list and Windows Update's own history (KB-numbered entries only), as in
+  // lib/render.mjs newestUpdate: the hotfix list comes back empty on some fully patched PCs.
+  const wuh = (d.UpdateHistory || []).filter(u => u && /KB\d{6,8}/.test(u.Title || '') && u.InstalledOn);
+  const latest = [...hot.filter(h => h.InstalledOn).map(h => ({ id: h.ID, on: h.InstalledOn })),
+    ...wuh.map(u => ({ id: u.Title.match(/KB\d{6,8}/)[0], on: u.InstalledOn }))].sort((a, b) => b.on.localeCompare(a.on))[0] || null;
+  const lastPatch = latest ? daysAgo(latest.on) : null;
+  if (lastPatch === null) flags.push(['bad', 'No Windows updates listed', 'Neither the hotfix list nor Windows Update history shows an installed update.', 'updates']);
+  else if (lastPatch > 45) flags.push(['bad', `No Windows updates in ${lastPatch} days`, `Newest is ${esc(latest.id)}, installed ${esc(latest.on.slice(0,10))}.`, 'updates']);
   if (O.UptimeDays > 30) flags.push(['warn', `Not restarted in ${Math.floor(O.UptimeDays)} days`, `Last boot ${esc(O.LastBoot)}. Pending updates usually need a restart.`, 'uptime']);
   disks.forEach(k => { if (k.FreePercent < 15) flags.push([k.FreePercent < 8 ? 'bad' : 'warn', `${esc(k.Drive)} is low on space`, `${k.FreeGB} GB free of ${k.SizeGB} GB (${k.FreePercent}%).`, 'disk:' + k.Drive]); });
   const memUsed = pct(M.Used, M.Total);
@@ -100,7 +105,7 @@ ${btn ? '<div id="job" class="job" hidden></div>' : ''}
   ${diskCards}
   <div class="card"><div class="k">Uptime</div><div class="v">${Math.floor(O.UptimeDays)} days</div><div class="small">since ${esc(O.LastBoot)}</div></div>
   <div class="card"><div class="k">Last Windows update</div><div class="v">${lastPatch === null ? 'none' : lastPatch + ' days ago'}</div>
-    <div class="small">${hot.length ? esc(hot[0].ID) + ', ' + esc(hot[0].InstalledOn.slice(0,10)) : ''}</div></div>
+    <div class="small">${latest ? esc(latest.id) + ', ' + esc(latest.on.slice(0,10)) : ''}</div></div>
 </div>
 
 <section><h2>Needs a look</h2><ul class="flags">${active.map(([c, t, x, k]) =>
@@ -140,8 +145,9 @@ ${kv([['Defender antivirus', yesno(def.AntivirusEnabled)], ['Defender real-time'
 <div class="two">
 <section><h2>Printers (${prn.length})</h2>${table(['Name', 'Port', 'Default'], prn.map(p => [
   `${esc(p.Name)}<div class="small">${esc(p.Driver)}</div>`, `<span class="mono">${esc(p.Port)}</span>`, p.Default ? '<span class="pill ok">Default</span>' : '']))}</section>
-<section><h2>Windows updates (${hot.length})</h2>${table(['Update', 'Type', 'Installed'], hot.map(h => [
-  `<span class="mono">${esc(h.ID)}</span>`, esc(h.Description), esc((h.InstalledOn || '').slice(0,10))]))}</section>
+<section><h2>Windows updates (${hot.length})</h2>${hot.length ? table(['Update', 'Type', 'Installed'], hot.map(h => [
+  `<span class="mono">${esc(h.ID)}</span>`, esc(h.Description), esc((h.InstalledOn || '').slice(0,10))])) : '<p class="small">The hotfix list is empty on this PC; see Windows Update history below.</p>'}
+${(d.UpdateHistory || []).length ? `<h2 style="margin-top:14px">Windows Update history (latest ${d.UpdateHistory.length})</h2>${table(['Update', 'Installed'], d.UpdateHistory.map(u => [esc(u.Title), esc((u.InstalledOn || '').slice(0,10))]))}` : ''}</section>
 </div>
 <div style="height:16px"></div>
 
