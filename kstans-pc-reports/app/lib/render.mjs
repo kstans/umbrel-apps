@@ -23,6 +23,7 @@ const RAT = /AnyDesk|TeamViewer|ScreenConnect|ConnectWise|Splashtop|RustDesk|Log
 const embed = (s) => s.replace(/<\//g, '<\\/');
 const jsStr = (s) => embed(String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 const when = (s) => new Date(String(s).slice(0, 16).replace(' ', 'T'));
+const escHtml = (v) => String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uniq = (xs) => [...new Map(xs.map((x) => [x.toLowerCase(), x])).values()];
 
 // Drives with no size (empty card readers, unmapped letters) come through with FreePercent {}.
@@ -109,7 +110,8 @@ function built(d) {
 }
 
 export function renderIndex(rows) {
-  return indexTemplate.replace('__BUILT__', built(new Date())).replace('__DATA__', () => embed(JSON.stringify(rows)));
+  return indexTemplate.replace('__BUILT__', built(new Date())).replace('__VERSION__', () => escHtml(process.env.APP_VERSION || 'dev'))
+    .replace('__DATA__', () => embed(JSON.stringify(rows)));
 }
 
 // json: the raw pc-report text. acks: this machine's OK marks { key: { at } }.

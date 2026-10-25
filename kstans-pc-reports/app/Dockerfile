@@ -7,6 +7,9 @@ COPY server.mjs ./
 COPY lib ./lib
 COPY templates ./templates
 ENV PORT=8765 DATA_DIR=/data
+# The app version (from umbrel-app.yml, passed in by the workflow), shown next to the page heading.
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
 # The node image's "node" user is uid 1000, which owns the Umbrel app-data folder.
 USER node
 EXPOSE 8765

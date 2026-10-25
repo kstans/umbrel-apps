@@ -17,6 +17,7 @@
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
 .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 16px 48px; }
 h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
+h1 .ver { font-size: 14px; font-weight: 500; color: var(--muted); letter-spacing: 0; vertical-align: 4px; }
 .sub, .small { color: var(--muted); }
 .small { font-size: 12px; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 18px 0; }
@@ -88,7 +89,7 @@ a.pdf:hover { border-color: var(--accent); }
 </head>
 <body>
 <div class="wrap">
-  <h1>PC Report</h1>
+  <h1>PC Report <span class="ver">v__VERSION__</span></h1>
   <div class="sub">Every machine in SimpleHelp by group. Built __BUILT__. Click a name for its PC report.</div>
   <div class="stats" id="stats"></div>
   <div class="tools">

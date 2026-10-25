@@ -2,7 +2,7 @@ manifestVersion: 1
 id: kstans-pc-reports
 category: networking
 name: PC Reports
-version: "1.2.0"
+version: "1.2.1"
 tagline: SimpleHelp computer inventory with health checks
 icon: https://cdn.jsdelivr.net/gh/kstans/umbrel-apps@main/kstans-pc-reports/icon.svg
 description: >
@@ -30,6 +30,6 @@ gallery: []
 path: ""
 defaultUsername: ""
 defaultPassword: ""
-releaseNotes: "Old PCs (Windows 7 / Server 2008 R2) get reports through the new pc-report-legacy toolbox tool, which is also tried when pc-report comes back empty twice. The update check also reads Windows Update history, so PCs whose hotfix list is empty are no longer flagged No updates listed. Needs the pc-report and pc-report-legacy tools from pc-reports-tools.tbx."
+releaseNotes: "Shows the version next to the PC Report heading. Includes 1.2.0: legacy reports for Windows 7 / Server 2008 R2 (needs the pc-report and pc-report-legacy tools from pc-reports-tools.tbx), and the update check reads Windows Update history."
 submitter: kstans
 submission: https://github.com/kstans/umbrel-apps
