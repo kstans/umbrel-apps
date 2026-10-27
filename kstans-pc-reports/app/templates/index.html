@@ -26,6 +26,12 @@ h1 .ver { font-size: 14px; font-weight: 500; color: var(--muted); letter-spacing
 .stat:hover { border-color: var(--accent); }
 .stat.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .stat .v { font-size: 22px; font-weight: 600; }
+.stat .split { font-size: 14px; font-weight: 600; color: var(--muted); }
+.stat .split span { padding: 0 3px; border-radius: 4px; }
+.stat .split span:hover { text-decoration: underline; }
+.stat .split .up { color: var(--ok); }
+.stat .split .down { color: var(--bad); }
+.stat .split .sel { box-shadow: inset 0 0 0 1px currentColor; }
 .tools { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 10px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 input[type=search] { flex: 1; min-width: 220px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font: inherit; }
 label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); cursor: pointer; }
@@ -132,17 +138,29 @@ const cards = {
   ok:     { k: 'Look healthy', test: m => m.report && worst(m) === 0 },
 };
 let card = 'all', grp = '';   // grp: the top-level group a group chip is filtering on ('' = every group)
+let offOnly = false;          // set by a card's red offline number: list only the offline ones
 function drawStats() {
-  document.getElementById('stats').innerHTML = Object.entries(cards).map(([id, c]) =>
-    `<button class="stat${card === id && id !== 'all' ? ' on' : ''}" type="button" data-card="${id}" title="${id === 'all' ? 'Show every machine' : 'Show only these; click again to show all'}">
-      <div class="small">${c.k}</div><div class="v">${all.filter(c.test).length}</div><div class="small">${c.x || ''}</div></button>`).join('');
+  const onl = document.getElementById('onl').checked;
+  document.getElementById('stats').innerHTML = Object.entries(cards).map(([id, c]) => {
+    const ms = all.filter(c.test), on = ms.filter(m => m.online).length, sel = card === id && (id !== 'all' || offOnly || onl);
+    // Green = online, red = offline; each number lists just those, the rest of the card lists both.
+    const split = id === 'online' ? '' : `<div class="split"><span class="up${sel && onl ? ' sel' : ''}" data-show="on" title="List the ${on} online">${on}</span> /
+      <span class="down${sel && offOnly ? ' sel' : ''}" data-show="off" title="List the ${ms.length - on} offline">${ms.length - on}</span></div>`;
+    return `<button class="stat${card === id && id !== 'all' ? ' on' : ''}" type="button" data-card="${id}" title="${id === 'all' ? 'Show every machine' : 'Show only these, online and offline; click again to show all'}">
+      <div class="small">${c.k}</div><div class="v">${ms.length}</div>${split}<div class="small">${c.x || ''}</div></button>`;
+  }).join('');
 }
 document.getElementById('stats').addEventListener('click', e => {
   const b = e.target.closest('.stat');
   if (!b) return;
-  card = b.dataset.card === card ? 'all' : b.dataset.card;
-  // A card's count includes offline machines (except "Online now"), so the list should too.
-  document.getElementById('onl').checked = card === 'online';
+  const show = e.target.closest('[data-show]')?.dataset.show || '';
+  const wasOnl = document.getElementById('onl').checked;
+  // Clicking what is already showing turns it off again.
+  const same = b.dataset.card === card && (show === 'on' ? wasOnl : show === 'off' ? offOnly : !wasOnl && !offOnly);
+  card = same ? 'all' : b.dataset.card;
+  offOnly = !same && show === 'off';
+  // The big number counts offline machines too (except "Online now"), so the list should too.
+  document.getElementById('onl').checked = !same && (show === 'on' || card === 'online');
   drawStats(); draw();
 });
 drawStats();
@@ -164,7 +182,7 @@ const head = '<tr><th>Computer</th><th>User</th><th>Windows</th><th>Last update<
 function draw() {
   const q = document.getElementById('q').value.toLowerCase(), onl = document.getElementById('onl').checked, att = document.getElementById('att').checked;
   const narrow = q || att || card !== 'all';   // filtering, so hide groups and subgroups with no match
-  const keep = m => (!onl || m.online) && (!att || worst(m) > 0) && cards[card].test(m) &&
+  const keep = m => (!onl || m.online) && (!offOnly || !m.online) &&(!att || worst(m) > 0) && cards[card].test(m) &&
     (!q || `${m.name} ${m.host} ${m.user} ${m.model} ${m.os} ${m.group}`.toLowerCase().includes(q));
   let shown = 0;
   document.getElementById('groups').innerHTML = tops.filter(t => !grp || t === grp).map(t => {
@@ -183,7 +201,7 @@ function draw() {
     return `<details class="group" id="g-${esc(t.replace(/\W+/g, '-'))}" open><summary><h2>${esc(t)}</h2>
       <span class="count">${on} online of ${inTop.length}${red ? ` &middot; <span style="color:var(--bad)">${red} with serious issues</span>` : ''}</span>${rsBtn(inTop, t, 'Rescan group')}${pdfLink(inTop, t, false)}</summary><div class="sg">${body}</div></details>`;
   }).join('');
-  document.getElementById('n').textContent = `${shown} shown`;
+  document.getElementById('n').textContent = `${shown} shown${offOnly ? ' (offline only)' : ''}`;
 }
 // ---- Rescan (only when served by scripts\pc-reports-server.mjs) ----
 // A button carries the online machine IDs it covers. Group buttons need a second click to confirm.
@@ -277,7 +295,9 @@ document.getElementById('nav').addEventListener('click', e => {
   drawNav(); draw();
 });
 drawNav();
-['q', 'onl', 'att'].forEach(id => document.getElementById(id).addEventListener('input', draw));
+['q', 'att'].forEach(id => document.getElementById(id).addEventListener('input', draw));
+// Ticking "Online only" ends an offline-only view; either way the card highlights follow it.
+document.getElementById('onl').addEventListener('input', () => { if (document.getElementById('onl').checked) offOnly = false; drawStats(); draw(); });
 
 // Reload every hour to show what the server picked up (it re-reads SimpleHelp every 15 minutes and
 // scans new PCs), keeping the search, checkboxes and card filter. Waits while a job is running.
@@ -285,12 +305,12 @@ const KEEP = 'pcr-view';
 try {
   const v = JSON.parse(sessionStorage.getItem(KEEP) || 'null');
   if (v) { document.getElementById('q').value = v.q; document.getElementById('onl').checked = v.onl; document.getElementById('att').checked = v.att;
-    if (cards[v.card]) card = v.card; if (tops.includes(v.grp)) grp = v.grp; drawStats(); drawNav(); }
+    if (cards[v.card]) card = v.card; if (tops.includes(v.grp)) grp = v.grp; offOnly = !!v.offOnly; drawStats(); drawNav(); }
 } catch { /* storage blocked: start fresh */ }
 function hourly() {
   if (!jobBox.hidden && jobBox.classList.contains('running')) return setTimeout(hourly, 60000);
   try { sessionStorage.setItem(KEEP, JSON.stringify({ q: document.getElementById('q').value, onl: document.getElementById('onl').checked,
-    att: document.getElementById('att').checked, card, grp, y: scrollY })); } catch { /* storage blocked */ }
+    att: document.getElementById('att').checked, card, grp, offOnly, y: scrollY })); } catch { /* storage blocked */ }
   location.reload();
 }
 if (location.protocol.startsWith('http')) setTimeout(hourly, 60 * 60 * 1000);
