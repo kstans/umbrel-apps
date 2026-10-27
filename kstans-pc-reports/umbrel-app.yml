@@ -2,7 +2,7 @@ manifestVersion: 1
 id: kstans-pc-reports
 category: networking
 name: PC Reports
-version: "1.3.0"
+version: "1.3.1"
 tagline: SimpleHelp computer inventory with health checks
 icon: https://cdn.jsdelivr.net/gh/kstans/umbrel-apps@main/kstans-pc-reports/icon.svg
 description: >
@@ -32,6 +32,6 @@ gallery: []
 path: ""
 defaultUsername: ""
 defaultPassword: ""
-releaseNotes: "Auto fix AV: in the groups set by AUTO_FIX_AV_GROUPS (MPI and Town of Clyde), PCs that come online with another antivirus get it removed and Defender turned on and updated. Never restarts a PC. Needs remove-webroot-force, remove-kaspersky-v4, clear-stale-av and defender-on in the SimpleHelp toolbox. Results are on the new Fix AV log page."
+releaseNotes: "1.3.1: auto fix AV now runs every 15 minutes (1.3.0 only ran it when a never-scanned PC came online). Auto fix AV: in the groups set by AUTO_FIX_AV_GROUPS (MPI and Town of Clyde), PCs that come online with another antivirus get it removed and Defender turned on and updated. Never restarts a PC. Needs remove-webroot-force, remove-kaspersky-v4, clear-stale-av and defender-on in the SimpleHelp toolbox. Results are on the new Fix AV log page."
 submitter: kstans
 submission: https://github.com/kstans/umbrel-apps

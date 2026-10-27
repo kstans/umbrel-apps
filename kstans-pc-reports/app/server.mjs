@@ -203,6 +203,10 @@ const AUTO_MS = 15 * 60 * 1000;
 // SimpleHelp's os text, e.g. "Windows 11 (25H2) Intel/64", "Windows 7 (7601) Intel/64", "Windows Server 2008 R2 ...".
 const canRun = (os) => /Windows/i.test(os || '') && !/Windows (XP|Vista|7|8)\b(?!\.1)|Server 200[0-8]/i.test(os || '');
 async function autoTick() {
+  await scanNew();
+  fixAv.tick();   // runs on its own; skips the pass if the last one is still going
+}
+async function scanNew() {
   if (config.missing.length || auto?.state === 'running') return;
   try {
     const machines = await refreshMachines();
@@ -218,7 +222,6 @@ async function autoTick() {
   } catch (e) {
     console.log(`auto-scan pass failed: ${client.scrub(e.message)}`);
   }
-  fixAv.tick();   // runs on its own; skips the pass if the last one is still going
 }
 const fixAv = createFixAv({ client, config, file, canRun });
 setTimeout(autoTick, 60 * 1000);
