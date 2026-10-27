@@ -31,6 +31,10 @@ input[type=search] { flex: 1; min-width: 220px; padding: 8px 10px; border: 1px s
 label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); cursor: pointer; }
 nav { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 nav a { padding: 3px 10px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--ink); text-decoration: none; font-size: 13px; }
+nav a:hover { border-color: var(--accent); }
+nav a.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+nav a .n { font-size: 12px; color: var(--muted); margin-left: 4px; }
+nav a .up { color: var(--ok); }
 details.group { background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 14px; }
 details.group > summary { list-style: none; cursor: pointer; padding: 14px 16px; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
 details.group > summary::-webkit-details-marker { display: none; }
@@ -127,7 +131,7 @@ const cards = {
   warn:   { k: 'Worth a look', x: 'amber flags only', test: m => m.report && worst(m) === 1 },
   ok:     { k: 'Look healthy', test: m => m.report && worst(m) === 0 },
 };
-let card = 'all';
+let card = 'all', grp = '';   // grp: the top-level group a group chip is filtering on ('' = every group)
 function drawStats() {
   document.getElementById('stats').innerHTML = Object.entries(cards).map(([id, c]) =>
     `<button class="stat${card === id && id !== 'all' ? ' on' : ''}" type="button" data-card="${id}" title="${id === 'all' ? 'Show every machine' : 'Show only these; click again to show all'}">
@@ -163,7 +167,7 @@ function draw() {
   const keep = m => (!onl || m.online) && (!att || worst(m) > 0) && cards[card].test(m) &&
     (!q || `${m.name} ${m.host} ${m.user} ${m.model} ${m.os} ${m.group}`.toLowerCase().includes(q));
   let shown = 0;
-  document.getElementById('groups').innerHTML = tops.map(t => {
+  document.getElementById('groups').innerHTML = tops.filter(t => !grp || t === grp).map(t => {
     const inTop = all.filter(m => topGroup(m.group) === t), vis = inTop.filter(keep);
     shown += vis.length;
     if (!vis.length && narrow) return '';
@@ -257,7 +261,22 @@ if (location.protocol.startsWith('http')) {
 
 // Rescan every online PC at once (needs a second click to confirm, like the group buttons).
 document.getElementById('refresh').insertAdjacentHTML('beforebegin', rsBtn(all, 'all online PCs', 'Rescan all'));
-document.getElementById('nav').innerHTML = tops.map(t => `<a href="#g-${esc(t.replace(/\W+/g, '-'))}">${esc(t)}</a>`).join('');
+// Group chips are filters too: click one to list only that group, click it again to show every group.
+function drawNav() {
+  document.getElementById('nav').innerHTML = tops.map(t => {
+    const ms = all.filter(m => topGroup(m.group) === t), on = ms.filter(m => m.online).length;
+    return `<a href="#g-${esc(t.replace(/\W+/g, '-'))}" class="${grp === t ? 'on' : ''}" data-grp="${esc(t)}" title="${grp === t ? 'Click again to show every group' : `Show only ${esc(t)}`}">${esc(t)}
+      <span class="n"><span class="up">${on} online</span> &middot; ${ms.length - on} offline</span></a>`;
+  }).join('');
+}
+document.getElementById('nav').addEventListener('click', e => {
+  const a = e.target.closest('a[data-grp]');
+  if (!a) return;
+  e.preventDefault();
+  grp = a.dataset.grp === grp ? '' : a.dataset.grp;
+  drawNav(); draw();
+});
+drawNav();
 ['q', 'onl', 'att'].forEach(id => document.getElementById(id).addEventListener('input', draw));
 
 // Reload every hour to show what the server picked up (it re-reads SimpleHelp every 15 minutes and
@@ -266,12 +285,12 @@ const KEEP = 'pcr-view';
 try {
   const v = JSON.parse(sessionStorage.getItem(KEEP) || 'null');
   if (v) { document.getElementById('q').value = v.q; document.getElementById('onl').checked = v.onl; document.getElementById('att').checked = v.att;
-    if (cards[v.card]) card = v.card; drawStats(); }
+    if (cards[v.card]) card = v.card; if (tops.includes(v.grp)) grp = v.grp; drawStats(); drawNav(); }
 } catch { /* storage blocked: start fresh */ }
 function hourly() {
   if (!jobBox.hidden && jobBox.classList.contains('running')) return setTimeout(hourly, 60000);
   try { sessionStorage.setItem(KEEP, JSON.stringify({ q: document.getElementById('q').value, onl: document.getElementById('onl').checked,
-    att: document.getElementById('att').checked, card, y: scrollY })); } catch { /* storage blocked */ }
+    att: document.getElementById('att').checked, card, grp, y: scrollY })); } catch { /* storage blocked */ }
   location.reload();
 }
 if (location.protocol.startsWith('http')) setTimeout(hourly, 60 * 60 * 1000);
