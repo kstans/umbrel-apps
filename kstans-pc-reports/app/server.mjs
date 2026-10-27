@@ -7,6 +7,8 @@
 // the server re-reads the machine list every 15 minutes and scans PCs that have never been scanned.
 // Auto fix AV (lib/fixav.mjs) is the exception: in the groups named by AUTO_FIX_AV_GROUPS it runs the
 // antivirus removal tools and defender-on on PCs as they come online.
+// The PC page's History and Notes tabs read SimpleHelp's session history and read/write the machine's
+// SimpleHelp notes (the API token needs those permissions).
 //
 // Environment (set in the Umbrel app settings, never in this repo):
 //   PC_REPORTS_PASSWORD   sign-in password
@@ -14,7 +16,7 @@
 //   DATA_DIR (default /data), PORT (default 8765)
 //   AUTO_FIX_AV_GROUPS    comma-separated top-level groups for auto fix AV; empty = off
 import { createServer } from 'node:http';
-import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, appendFile } from 'node:fs/promises';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHmac, randomBytes, timingSafeEqual, createHash } from 'node:crypto';
@@ -227,6 +229,45 @@ const fixAv = createFixAv({ client, config, file, canRun });
 setTimeout(autoTick, 60 * 1000);
 setInterval(autoTick, AUTO_MS);
 
+// ---- History tab: SimpleHelp's session history for one PC ----------------------------------------
+// SimpleHelp lists remote sessions with their type and mode, but toolbox runs come back with no type
+// or tool name. So every tool run is also written to toolruns.jsonl ({ at, id, tool, result? }): runs
+// this app starts (logged here) and runs started from the Chief of Staff hub (appended by its pc-job
+// script). A SimpleHelp tool session takes the name of the logged run that started within 3 minutes
+// of it. Fix AV log entries for the PC are added as their own rows.
+const RUNLOG = 'toolruns.jsonl', MATCH_MS = 3 * 60 * 1000, HISTORY_DAYS = 180;
+const toolNames = new Map();
+const listTools = client.listTools.bind(client), runTool = client.runTool.bind(client);
+client.listTools = async (...a) => { const t = await listTools(...a); for (const x of t || []) toolNames.set(x.toolID, x.name); return t; };
+client.runTool = async (args) => {
+  const at = Date.now(), res = await runTool(args);
+  const lines = (args.machineIDs || []).map((id) => JSON.stringify({ at, id: String(id), tool: toolNames.get(args.toolID) || 'toolbox tool' }) + '\n');
+  await appendFile(file(RUNLOG), lines.join(''), 'utf8').catch(() => {});
+  return res;
+};
+async function pcHistory(id) {
+  const since = Date.now() - HISTORY_DAYS * 864e5;
+  let runs = [];
+  try { runs = (await readFile(file(RUNLOG), 'utf8')).split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter((r) => r && r.id === id && r.at >= since); } catch { /* no log yet */ }
+  const sessions = await client.history(id, since);
+  const used = new Set();
+  const rows = sessions.map((s) => {
+    const row = { at: s.start, minutes: Math.round((s.duration || 0) / 6e4), tech: s.technicianName || s.technicianUsername || '',
+      what: s.type ? `${s.type}${s.mode ? ` (${s.mode})` : ''}` : 'Toolbox run', events: s.sessionEvents || [] };
+    if (!s.type) {
+      const near = runs.filter((r) => !used.has(r) && Math.abs(r.at - s.start) < MATCH_MS).sort((a, b) => Math.abs(a.at - s.start) - Math.abs(b.at - s.start))[0];
+      if (near) { used.add(near); row.what = `Tool: ${near.tool}`; if (near.result) row.result = near.result; }
+    }
+    return row;
+  });
+  // Logged runs SimpleHelp didn't list (or listed past maxResults) still show.
+  for (const r of runs.filter((r) => !used.has(r))) rows.push({ at: r.at, what: `Tool: ${r.tool}`, result: r.result, tech: '', events: [] });
+  for (const e of (await readJson('fixav-log.json', [])).filter((e) => String(e.id) === id)) {
+    rows.push({ at: Date.parse(e.at), what: 'Auto fix AV', result: `${e.why || ''}: ${(e.steps || []).map((s) => `${s.tool} ${s.result}`).join('; ')}`, tech: 'PC Reports', events: [] });
+  }
+  return rows.sort((a, b) => b.at - a.at);
+}
+
 // ---- Mark OK: acks.json is { "<machineID>": { "<flag key>": { "at": "<date>" } } } -----------
 let ackChain = Promise.resolve();
 async function setAck(id, key, ok) {
@@ -303,6 +344,18 @@ createServer(async (req, res) => {
       ackChain = p.catch(() => {});
       await p;
       return json(res, 200, { ok: true });
+    }
+    // PC page tabs: SimpleHelp history and the machine's SimpleHelp notes.
+    if (path === '/api/history' && ID.test(url.searchParams.get('id') || '')) return json(res, 200, { rows: await pcHistory(url.searchParams.get('id')) });
+    if (path === '/api/notes' && req.method === 'GET' && ID.test(url.searchParams.get('id') || '')) {
+      const n = await client.getNotes(url.searchParams.get('id'));
+      return json(res, 200, { notes: n?.notes || '' });
+    }
+    if (path === '/api/notes' && req.method === 'POST') {
+      const { id, notes } = JSON.parse(await body(req, 40000) || '{}');
+      if (!ID.test(String(id)) || typeof notes !== 'string' || notes.length > 20000) return json(res, 400, { error: 'bad id or notes' });
+      await client.setNotes(String(id), notes);
+      return json(res, 200, { notes: (await client.getNotes(String(id)))?.notes || '' });
     }
 
     if (path === '/' || path === '/index.html') {

@@ -50,6 +50,15 @@ export class SimpleHelpClient {
   runTool({ technician, toolID, machineIDs }) { return this.query('/tools/run', { username: technician, toolID, machineIDs }); }
   runStatus(runID) { return this.query('/tools/run/status', { runID }); }
   runOutput(runID) { return this.query('/tools/run/output', { runID }); }
+  // Sessions on one machine (remote access, support, toolbox runs), newest first. Chat is never asked for.
+  // Toolbox runs come back without a type or tool name.
+  async history(machineID, since, max = 200) {
+    const list = await this.query('/history/list', { machineIDFilters: [machineID], rangeStart: since, maxResults: max, includeEvents: true });
+    return (Array.isArray(list) ? list : []).sort((a, b) => b.start - a.start);
+  }
+  // The machine's notes in SimpleHelp (the same notes the Technician Console shows).
+  getNotes(machineID) { return this.query('/machines/notes/get', { machineID }); }
+  setNotes(machineID, notes) { return this.query('/machines/notes/set', { machineID, notes }); }
 }
 
 // With connectAddress, the TCP connection goes to that IP (e.g. the SimpleHelp server's Tailscale

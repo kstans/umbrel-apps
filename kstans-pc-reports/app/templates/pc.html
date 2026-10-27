@@ -17,7 +17,16 @@ const TITLE = '__TITLE__', BACK = '__BACK__', MID = '__ID__';
 const ACKS = __ACKS__;
 const { html, software, shown } = pcReport(d, { title: TITLE, back: BACK, id: MID, acks: ACKS });
 document.title = `${shown} - PC Report`;
-document.getElementById('app').innerHTML = html;
+// Report / History / Notes tabs under the header. History and Notes come from SimpleHelp through the
+// server, so the tab bar only shows when the page is served by PC Reports (body.live).
+const cut = html.indexOf('</header>') + 9;
+document.getElementById('app').innerHTML = html.slice(0, cut) +
+  `<nav class="tabs" role="tablist"><button type="button" role="tab" data-tab="report" class="on">Report</button><button type="button" role="tab" data-tab="history">History</button><button type="button" role="tab" data-tab="notes">Notes</button></nav>
+  <div id="t-report">${html.slice(cut)}</div>
+  <div id="t-history" hidden><section><h2>SimpleHelp history (last 180 days)</h2><div id="hist">Loading&hellip;</div></section></div>
+  <div id="t-notes" hidden><section><h2>Notes</h2><div class="small">Saved as this machine's notes in SimpleHelp, so the Technician Console shows the same text.</div>
+    <textarea id="notes" rows="14" placeholder="Loading&hellip;" disabled></textarea>
+    <div><button type="button" class="rs" id="save-notes" disabled>Save notes</button> <span class="small" id="notes-msg"></span></div></section></div>`;
 
 const draw = () => {
   const q = document.getElementById('q').value.toLowerCase();
@@ -68,6 +77,42 @@ if (MID && location.protocol.startsWith('http')) {
     catch (e) { show({ state: 'failed', step: e.message }); }
   });
   api('/api/ping').then(() => { document.body.classList.add('live'); poll(); }).catch(() => {});
+
+  // Tabs. History and Notes load the first time they are opened.
+  const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const stamp = ms => new Date(ms).toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const loaded = {};
+  const load = {
+    history: async () => {
+      const box = document.getElementById('hist');
+      try {
+        const { rows } = await api(`/api/history?id=${encodeURIComponent(MID)}`);
+        box.innerHTML = rows.length ? `<div class="tw"><table><thead><tr><th>When</th><th>What</th><th>Who</th><th>Length</th><th>Result</th></tr></thead><tbody>${rows.map(r => `<tr>
+          <td class="nw">${esc(stamp(r.at))}</td><td>${esc(r.what)}</td><td>${esc(r.tech)}</td><td class="nw">${r.minutes != null ? (r.minutes ? r.minutes + ' min' : '&lt; 1 min') : ''}</td>
+          <td>${esc(r.result || '')}${r.events.length ? `<details><summary>${r.events.length} event(s)</summary><ul>${r.events.map(e => `<li>${esc(e)}</li>`).join('')}</ul></details>` : ''}</td></tr>`).join('')}</tbody></table></div>`
+          : '<p class="small">SimpleHelp has no sessions or tool runs for this PC in the last 180 days.</p>';
+      } catch (e) { box.textContent = `Could not read SimpleHelp history: ${e.message}`; loaded.history = false; }
+    },
+    notes: async () => {
+      const ta = document.getElementById('notes'), save = document.getElementById('save-notes'), msg = document.getElementById('notes-msg');
+      try { ta.value = (await api(`/api/notes?id=${encodeURIComponent(MID)}`)).notes; ta.placeholder = 'No notes yet.'; ta.disabled = false; save.disabled = false; }
+      catch (e) { ta.placeholder = ''; msg.textContent = `Could not read SimpleHelp notes: ${e.message}`; loaded.notes = false; }
+      ta.addEventListener('input', () => { msg.textContent = 'Not saved'; });
+      save.addEventListener('click', async () => {
+        save.disabled = true; msg.textContent = 'Saving…';
+        try { ta.value = (await api('/api/notes', { id: MID, notes: ta.value })).notes; msg.textContent = `Saved to SimpleHelp ${stamp(Date.now())}`; }
+        catch (e) { msg.textContent = `Not saved: ${e.message}`; }
+        save.disabled = false;
+      });
+    },
+  };
+  document.querySelector('.tabs').addEventListener('click', e => {
+    const b = e.target.closest('[data-tab]');
+    if (!b) return;
+    document.querySelectorAll('.tabs [data-tab]').forEach(x => x.classList.toggle('on', x === b));
+    for (const t of ['report', 'history', 'notes']) document.getElementById('t-' + t).hidden = t !== b.dataset.tab;
+    if (load[b.dataset.tab] && !loaded[b.dataset.tab]) { loaded[b.dataset.tab] = true; load[b.dataset.tab](); }
+  });
 }
 </script>
 </body>

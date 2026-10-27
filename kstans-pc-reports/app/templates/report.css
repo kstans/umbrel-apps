@@ -88,4 +88,15 @@ body.live .rs { display: inline-block; }
   th { position: static; }
   section, .card, .flags li { break-inside: avoid; }
   .svc { columns: 3 200px; }
-}
+}/* PC page tabs (pc.html): Report / History / Notes. Only when served by PC Reports; a PDF is the report alone. */
+.tabs { display: none; gap: 4px; margin: -8px 0 16px; border-bottom: 1px solid var(--line); }
+body.live .tabs { display: flex; }
+.tabs button { font: inherit; padding: 6px 14px; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  background: none; color: var(--muted); cursor: pointer; }
+.tabs button:hover { color: var(--ink); }
+.tabs button.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.tw { overflow-x: auto; }
+.nw { white-space: nowrap; }
+#notes { display: block; width: 100%; margin: 10px 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--bg); color: var(--ink); font: inherit; resize: vertical; }
+@media print { .tabs, #t-history, #t-notes { display: none; } #t-report { display: block !important; } }
