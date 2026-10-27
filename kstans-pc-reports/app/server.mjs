@@ -5,11 +5,14 @@
 // A rescan runs the read-only SimpleHelp toolbox tool "pc-report" (or "pc-report-legacy" on Windows too old
 // for it) and nothing else. In the background
 // the server re-reads the machine list every 15 minutes and scans PCs that have never been scanned.
+// Auto fix AV (lib/fixav.mjs) is the exception: in the groups named by AUTO_FIX_AV_GROUPS it runs the
+// antivirus removal tools and defender-on on PCs as they come online.
 //
 // Environment (set in the Umbrel app settings, never in this repo):
 //   PC_REPORTS_PASSWORD   sign-in password
 //   SIMPLEHELP_URL, SIMPLEHELP_TOKEN, SIMPLEHELP_TECHNICIAN, SIMPLEHELP_CONNECT_ADDRESS
 //   DATA_DIR (default /data), PORT (default 8765)
+//   AUTO_FIX_AV_GROUPS    comma-separated top-level groups for auto fix AV; empty = off
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -17,6 +20,7 @@ import { join } from 'node:path';
 import { createHmac, randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 import { loadConfig, SimpleHelpClient } from './lib/simplehelp.mjs';
 import { indexRows, renderIndex, renderPc, renderPrint, renderLogin, assets } from './lib/render.mjs';
+import { createFixAv } from './lib/fixav.mjs';
 
 const DATA = process.env.DATA_DIR || '/data';
 const PORT = Number(process.env.PORT || 8765);
@@ -214,7 +218,9 @@ async function autoTick() {
   } catch (e) {
     console.log(`auto-scan pass failed: ${client.scrub(e.message)}`);
   }
+  fixAv.tick();   // runs on its own; skips the pass if the last one is still going
 }
+const fixAv = createFixAv({ client, config, file, canRun });
 setTimeout(autoTick, 60 * 1000);
 setInterval(autoTick, AUTO_MS);
 
@@ -300,6 +306,7 @@ createServer(async (req, res) => {
       const machines = await readJson('machines.json', []);
       return html(res, 200, renderIndex(indexRows(machines, await loadReports(), await readJson('acks.json', {}))));
     }
+    if (path === '/fixav') return html(res, 200, await fixAv.page());
     if (assets[path]) return res.writeHead(200, { 'Content-Type': assets[path].type, 'Cache-Control': 'no-cache' }).end(assets[path].body);
     // One printable document for a group (and its subgroups) or, with exact=1, one subgroup:
     // every machine in it that has a report, online or not.

@@ -15,6 +15,8 @@ services:
       PORT: "8765"
       DATA_DIR: /data
       TZ: America/New_York
+      # Auto fix AV: top-level SimpleHelp groups to keep on Defender only. Empty turns it off.
+      AUTO_FIX_AV_GROUPS: "MPI,Town of Clyde"
     # The password and SimpleHelp settings are deliberately not here: set PC_REPORTS_PASSWORD,
     # SIMPLEHELP_URL, SIMPLEHELP_TOKEN, SIMPLEHELP_TECHNICIAN and SIMPLEHELP_CONNECT_ADDRESS as
     # custom environment variables on the "server" service in the app's umbrelOS settings.

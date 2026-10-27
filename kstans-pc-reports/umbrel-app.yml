@@ -2,7 +2,7 @@ manifestVersion: 1
 id: kstans-pc-reports
 category: networking
 name: PC Reports
-version: "1.2.1"
+version: "1.3.0"
 tagline: SimpleHelp computer inventory with health checks
 icon: https://cdn.jsdelivr.net/gh/kstans/umbrel-apps@main/kstans-pc-reports/icon.svg
 description: >
@@ -12,6 +12,8 @@ description: >
   SimpleHelp toolbox tool "pc-report" on a PC, a subgroup, a group or everything;
   warnings can be marked OK. The summary cards filter the list, and each PC, subgroup
   and group can be saved as a PDF. New PCs are scanned automatically when they come online.
+  Auto fix AV (groups in AUTO_FIX_AV_GROUPS) removes any antivirus but Defender from PCs
+  as they come online and turns Defender on, using the SimpleHelp removal tools; see Fix AV log.
 
 
   Setup: before starting it, add these custom environment variables on the
@@ -30,6 +32,6 @@ gallery: []
 path: ""
 defaultUsername: ""
 defaultPassword: ""
-releaseNotes: "Shows the version next to the PC Report heading. Includes 1.2.0: legacy reports for Windows 7 / Server 2008 R2 (needs the pc-report and pc-report-legacy tools from pc-reports-tools.tbx), and the update check reads Windows Update history."
+releaseNotes: "Auto fix AV: in the groups set by AUTO_FIX_AV_GROUPS (MPI and Town of Clyde), PCs that come online with another antivirus get it removed and Defender turned on and updated. Never restarts a PC. Needs remove-webroot-force, remove-kaspersky-v4, clear-stale-av and defender-on in the SimpleHelp toolbox. Results are on the new Fix AV log page."
 submitter: kstans
 submission: https://github.com/kstans/umbrel-apps
