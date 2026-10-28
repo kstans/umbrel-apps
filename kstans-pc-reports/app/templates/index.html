@@ -59,6 +59,7 @@ a.pc { color: var(--accent); font-weight: 600; text-decoration: none; }
 a.pc:hover { text-decoration: underline; }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--muted); }
 .dot.on { background: var(--ok); }
+.use.in { color: var(--ok); font-weight: 600; }
 .chip { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 12px; margin: 1px 4px 1px 0; background: var(--chip); }
 .chip.bad { background: var(--bad-bg); color: var(--bad); }
 .chip.warn { background: var(--warn-bg); color: var(--warn); }
@@ -165,10 +166,17 @@ document.getElementById('stats').addEventListener('click', e => {
 });
 drawStats();
 
+// In use / not in use under the user, from the server's 5-minute poll of SimpleHelp. Online PCs only;
+// an offline PC's last SimpleHelp state is stale.
+const ago = ms => { const n = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  return n < 60 ? `${n} min ago` : n < 2880 ? `${Math.round(n / 60)} h ago` : `${Math.round(n / 1440)} d ago`; };
+const useLine = m => !m.online || !m.use ? '' : m.use.inUse
+  ? `<div class="small use in" title="SimpleHelp shows it in use (since about ${esc(new Date(m.use.since).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))})">In use</div>`
+  : `<div class="small use">Not in use${m.use.lastInUse ? `, in use ${ago(m.use.lastInUse)}` : ''}</div>`;
 const row = m => `<tr class="${m.online ? '' : 'off'}">
   <td><span class="dot ${m.online ? 'on' : ''}" title="${m.online ? 'online' : 'offline'}"></span>${m.report ? `<a class="pc" href="pc/${esc(m.id)}.html">${esc(m.name)}</a>` : esc(m.name)}${rsBtn([m], m.name, 'Rescan')}${m.online ? `<a class="rc" href="simplehelp://?JW_machine=${encodeURIComponent(m.id)}" title="Open a remote control session in the SimpleHelp Technician Console">Remote</a>` : ''}
     ${m.host && m.host.toLowerCase() !== String(m.name).toLowerCase() ? `<div class="small">${esc(m.host)}</div>` : ''}</td>
-  <td>${esc(m.user)}</td>
+  <td>${esc(m.user)}${useLine(m)}</td>
   <td>${esc(m.os)}${m.model ? `<div class="small">${esc(m.model)}</div>` : ''}</td>
   <td>${m.report ? esc(m.lastUpdate || '-') : ''}</td>
   <td>${m.uptime != null ? m.uptime + ' d' : ''}</td>

@@ -75,7 +75,8 @@ export function getFlags(r) {
 }
 
 // One row per SimpleHelp machine for the master page. reports: Map id -> parsed pc-report JSON.
-export function indexRows(machines, reports, acks) {
+// usage: usage.json from the server's in-use poll.
+export function indexRows(machines, reports, acks, usage = {}) {
   return machines.map((m) => {
     const r = reports.get(String(m.machineID));
     let flags = [];
@@ -97,6 +98,7 @@ export function indexRows(machines, reports, acks) {
       uptime: r ? Math.floor(r.OS?.UptimeDays ?? 0) : null,
       cFree: c ? c.FreePercent : null,
       model: r ? `${r.Computer?.Manufacturer || ''} ${r.Computer?.Model || ''}`.trim() : '',
+      use: usage[m.machineID] || null,
       flags,
     };
   });

@@ -2,7 +2,7 @@ manifestVersion: 1
 id: kstans-pc-reports
 category: networking
 name: PC Reports
-version: "1.4.0"
+version: "1.5.0"
 tagline: SimpleHelp computer inventory with health checks
 icon: https://cdn.jsdelivr.net/gh/kstans/umbrel-apps@main/kstans-pc-reports/icon.svg
 description: >
@@ -12,6 +12,8 @@ description: >
   SimpleHelp toolbox tool "pc-report" on a PC, a subgroup, a group or everything;
   warnings can be marked OK. The summary cards and group chips (with online/offline counts) filter the list, and each PC, subgroup
   and group can be saved as a PDF; each PC page also has History (SimpleHelp sessions and tool runs) and Notes (the machine's SimpleHelp notes) tabs. New PCs are scanned automatically when they come online.
+  Under each online PC's user it shows In use, or Not in use with how long ago it was last in use
+  (SimpleHelp's in-use state, checked every 5 minutes).
   Auto fix AV (groups in AUTO_FIX_AV_GROUPS) removes any antivirus but Defender from PCs
   as they come online and turns Defender on, using the SimpleHelp removal tools; see Fix AV log.
 
@@ -32,6 +34,6 @@ gallery: []
 path: ""
 defaultUsername: ""
 defaultPassword: ""
-releaseNotes: "1.4.0: PC pages have History and Notes tabs. History lists the PC's SimpleHelp sessions and toolbox runs for the last 180 days, naming each tool run PC Reports or the Chief of Staff hub started. Notes edits the machine's SimpleHelp notes. The API token needs history and machine notes access. 1.3.2: each summary card shows its online (green) and offline (red) counts; click either number to list just those. The group chips at the top show how many PCs are online and offline, and clicking one shows only that group (click again for all). 1.3.1: auto fix AV now runs every 15 minutes (1.3.0 only ran it when a never-scanned PC came online). Auto fix AV: in the groups set by AUTO_FIX_AV_GROUPS (MPI and Town of Clyde), PCs that come online with another antivirus get it removed and Defender turned on and updated. Never restarts a PC. Needs remove-webroot-force, remove-kaspersky-v4, clear-stale-av and defender-on in the SimpleHelp toolbox. Results are on the new Fix AV log page."
+releaseNotes: "1.5.0: under each online PC's user, the list shows In use, or Not in use with how long ago it was last in use (for example \"in use 40 min ago\"). It reads SimpleHelp's in-use state every 5 minutes, so times are good to about 5 minutes; PCs show it after the first check once the app has been updated. 1.4.0: PC pages have History and Notes tabs. History lists the PC's SimpleHelp sessions and toolbox runs for the last 180 days, naming each tool run PC Reports or the Chief of Staff hub started. Notes edits the machine's SimpleHelp notes. The API token needs history and machine notes access. 1.3.2: each summary card shows its online (green) and offline (red) counts; click either number to list just those. The group chips at the top show how many PCs are online and offline, and clicking one shows only that group (click again for all). 1.3.1: auto fix AV now runs every 15 minutes (1.3.0 only ran it when a never-scanned PC came online). Auto fix AV: in the groups set by AUTO_FIX_AV_GROUPS (MPI and Town of Clyde), PCs that come online with another antivirus get it removed and Defender turned on and updated. Never restarts a PC. Needs remove-webroot-force, remove-kaspersky-v4, clear-stale-av and defender-on in the SimpleHelp toolbox. Results are on the new Fix AV log page."
 submitter: kstans
 submission: https://github.com/kstans/umbrel-apps

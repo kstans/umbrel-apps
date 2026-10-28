@@ -79,6 +79,30 @@ async function refreshMachines() {
   return new Map(machines.map((m) => [String(m.machineID), m]));
 }
 
+// In use / not in use (Keith, 2026-10-28). SimpleHelp only says whether a PC is in use right now, so
+// every USAGE_MS the state of each online PC is read (one API call) and usage.json keeps
+// { "<machineID>": { inUse, since, lastInUse } }: since = when the current state was first seen,
+// lastInUse = the last time it was seen in use. Good to about USAGE_MS.
+const USAGE_MS = 5 * 60 * 1000;
+async function pollUsage() {
+  if (config.missing.length) return;
+  try {
+    const ids = (await readJson('machines.json', [])).filter((m) => m.online).map((m) => String(m.machineID));
+    if (!ids.length) return;
+    const usage = await readJson('usage.json', {}), now = Date.now();
+    for (const m of await client.getMachines(ids)) {
+      if (!m?.online || !/In Use/i.test(m.state || '')) continue;   // "Unknown" tells us nothing
+      const inUse = !/Not In Use/i.test(m.state), u = usage[m.machineID] || {};
+      usage[m.machineID] = { inUse, since: u.inUse === inUse && u.since ? u.since : now, lastInUse: inUse ? now : u.lastInUse || null };
+    }
+    await writeFile(file('usage.json'), JSON.stringify(usage, null, 1), 'utf8');
+  } catch (e) {
+    console.log(`usage poll failed: ${client.scrub(e.message)}`);
+  }
+}
+setTimeout(pollUsage, 90 * 1000);
+setInterval(pollUsage, USAGE_MS);
+
 async function loadReports() {
   const reports = new Map();
   for (const n of await readdir(DATA)) {
@@ -360,7 +384,7 @@ createServer(async (req, res) => {
 
     if (path === '/' || path === '/index.html') {
       const machines = await readJson('machines.json', []);
-      return html(res, 200, renderIndex(indexRows(machines, await loadReports(), await readJson('acks.json', {}))));
+      return html(res, 200, renderIndex(indexRows(machines, await loadReports(), await readJson('acks.json', {}), await readJson('usage.json', {}))));
     }
     if (path === '/fixav') return html(res, 200, await fixAv.page());
     if (assets[path]) return res.writeHead(200, { 'Content-Type': assets[path].type, 'Cache-Control': 'no-cache' }).end(assets[path].body);

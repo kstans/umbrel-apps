@@ -47,6 +47,11 @@ export class SimpleHelpClient {
 
   listMachines() { return this.query('/machines/list', {}); }
   listTools(technician) { return this.query('/tools/list', { username: technician }); }
+  // Full machine records (these carry "state": In Use / Not In Use / Unknown; the list does not).
+  async getMachines(machineIDs) {
+    const data = await this.query('/machines/get', machineIDs.length === 1 ? { machineID: machineIDs[0] } : { machineIDs });
+    return data == null ? [] : Array.isArray(data) ? data : [data];
+  }
   runTool({ technician, toolID, machineIDs }) { return this.query('/tools/run', { username: technician, toolID, machineIDs }); }
   runStatus(runID) { return this.query('/tools/run/status', { runID }); }
   runOutput(runID) { return this.query('/tools/run/output', { runID }); }
